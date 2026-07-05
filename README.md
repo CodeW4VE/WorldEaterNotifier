@@ -59,20 +59,7 @@ Create a `config/worldeaternotifier-config.json` file:
 ```json
 {
   "discordWebhookUrl": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
-  "discordRoleId": "YOUR_ROLE_ID",
-  "worldEaters": [
-    {
-      "name": "Main World Eater",
-      "dimension": "minecraft:the_end",
-      "minX": -100,
-      "maxX": 100,
-      "minZ": -100,
-      "maxZ": 100,
-      "minY": 40,
-      "maxY": 120,
-      "active": true
-    }
-  ]
+  "discordRoleId": "YOUR_ROLE_ID"
 }
 ```
 
