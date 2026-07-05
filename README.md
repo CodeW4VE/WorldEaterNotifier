@@ -59,7 +59,8 @@ Create a `config/worldeaternotifier-config.json` file:
 ```json
 {
   "discordWebhookUrl": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
-  "discordRoleId": "YOUR_ROLE_ID"
+  "discordRoleId": "YOUR_ROLE_ID",
+  "worldEaters": []
 }
 ```
 
