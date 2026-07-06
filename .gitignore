@@ -51,7 +51,7 @@ replay_*.log
 .env.local
 local.properties
 worldeaternotifier-config.json
-config/
+/config/
 
 # Minecraft
 crash-reports/
