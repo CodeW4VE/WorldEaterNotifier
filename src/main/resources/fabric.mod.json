@@ -1,26 +1,26 @@
 {
-	"schemaVersion": 1,
-	"id": "worldeaternotifier",
-	"version": "1.0.0",
-	"name": "WorldEaterNotifier",
-	"description": "Notifies a Discord role when a world eater stops due to obstruction.",
-	"authors": [
-		"Kisde"
-	],
-	"contact": {
-	},
-	"license": "MIT",
-	"icon": "assets/worldeaternotifier/icon.png",
-	"environment": "server",
-	"entrypoints": {
-		"main": [
-			"com.example.worldeaternotifier.WorldEaterNotifierMod"
-		]
-	},
-	"depends": {
-		"fabricloader": ">=0.19.0",
-		"minecraft": "~1.21",
-		"java": ">=17",
-		"fabric-api": "*"
-	}
+  "schemaVersion": 1,
+  "id": "worldeaternotifier",
+  "version": "${version}",
+  "name": "World Eater Notifier",
+  "description": "Notifies a Discord role when world eaters or trenchers stop.",
+  "authors": ["YourName"],
+  "contact": {},
+  "icon": "assets/worldeaternotifier/icon.png",
+  "license": "MIT",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.example.worldeaternotifier.WorldEaterNotifierMod"
+    ]
+  },
+  "mixins": [
+    "worldeaternotifier.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "~1.21.0",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
 }
