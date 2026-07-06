@@ -27,7 +27,7 @@ public class WorldEaterNotifierMod implements ModInitializer {
         WorldEaterManager weManager = WorldEaterManager.getInstance();
         weManager.setConfig(config);
         for (ModConfig.SavedMachine saved : config.worldEaters) {
-            RegistryKey<World> dimKey = RegistryKey.of(RegistryKeys.WORLD, Identifier.of(saved.dimension));
+            RegistryKey<World> dimKey = RegistryKey.of(RegistryKeys.WORLD, new Identifier(saved.dimension));
             BaseMachineDefinition def = new BaseMachineDefinition(saved.name,
                     saved.minX, saved.minY, saved.minZ,
                     saved.maxX, saved.maxY, saved.maxZ, dimKey);
@@ -39,7 +39,7 @@ public class WorldEaterNotifierMod implements ModInitializer {
         TrencherManager tManager = TrencherManager.getInstance();
         tManager.setConfig(config);
         for (ModConfig.SavedMachine saved : config.trenchers) {
-            RegistryKey<World> dimKey = RegistryKey.of(RegistryKeys.WORLD, Identifier.of(saved.dimension));
+            RegistryKey<World> dimKey = RegistryKey.of(RegistryKeys.WORLD, new Identifier(saved.dimension));
             BaseMachineDefinition def = new BaseMachineDefinition(saved.name,
                     saved.minX, saved.minY, saved.minZ,
                     saved.maxX, saved.maxY, saved.maxZ, dimKey);
