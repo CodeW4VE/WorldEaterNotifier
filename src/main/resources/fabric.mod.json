@@ -4,7 +4,7 @@
   "version": "${version}",
   "name": "World Eater Notifier",
   "description": "Notifies a Discord role when world eaters or trenchers stop.",
-  "authors": ["YourName"],
+  "authors": ["Kisde"],
   "contact": {},
   "icon": "assets/worldeaternotifier/icon.png",
   "license": "MIT",
