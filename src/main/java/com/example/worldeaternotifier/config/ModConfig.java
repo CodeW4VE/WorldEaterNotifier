@@ -18,9 +18,15 @@ public class ModConfig {
 
     public WorldEaterSettings worldEaterSettings = new WorldEaterSettings();
     public TrencherSettings trencherSettings = new TrencherSettings();
+    public BedrockBreakerSettings bedrockBreakerSettings = new BedrockBreakerSettings();
 
     public List<SavedMachine> worldEaters = new ArrayList<>();
     public List<SavedMachine> trenchers = new ArrayList<>();
+    public List<SavedMachine> bedrockBreakers = new ArrayList<>();
+
+    // Player names (case-insensitive match) allowed to use the commands even without op.
+    // Op players (permission level 2+) can always use every command regardless of this list.
+    public List<String> whitelist = new ArrayList<>();
 
     public static class WorldEaterSettings {
         public int stopTimeoutSeconds = 60;
@@ -31,6 +37,12 @@ public class ModConfig {
     public static class TrencherSettings {
         public int stopTimeoutSeconds = 180;
         public int minBlocksBroken = 3;
+        public PingSettings pingSettings = new PingSettings();
+    }
+
+    public static class BedrockBreakerSettings {
+        public int stopTimeoutSeconds = 180;
+        public int minBlocksBroken = 1;
         public PingSettings pingSettings = new PingSettings();
     }
 
@@ -67,16 +79,22 @@ public class ModConfig {
                 ModConfig config = GSON.fromJson(json, ModConfig.class);
                 if (config.worldEaters == null) config.worldEaters = new ArrayList<>();
                 if (config.trenchers == null) config.trenchers = new ArrayList<>();
+                if (config.bedrockBreakers == null) config.bedrockBreakers = new ArrayList<>();
+                if (config.whitelist == null) config.whitelist = new ArrayList<>();
                 if (config.worldEaterSettings == null) config.worldEaterSettings = new WorldEaterSettings();
                 if (config.trencherSettings == null) config.trencherSettings = new TrencherSettings();
+                if (config.bedrockBreakerSettings == null) config.bedrockBreakerSettings = new BedrockBreakerSettings();
                 if (config.worldEaterSettings.pingSettings == null) config.worldEaterSettings.pingSettings = new PingSettings();
                 if (config.trencherSettings.pingSettings == null) config.trencherSettings.pingSettings = new PingSettings();
+                if (config.bedrockBreakerSettings.pingSettings == null) config.bedrockBreakerSettings.pingSettings = new PingSettings();
 
                 // Apply defaults if values are invalid
                 if (config.worldEaterSettings.stopTimeoutSeconds <= 0) config.worldEaterSettings.stopTimeoutSeconds = 60;
                 if (config.worldEaterSettings.minTntCount < 1) config.worldEaterSettings.minTntCount = 3;
                 if (config.trencherSettings.stopTimeoutSeconds <= 0) config.trencherSettings.stopTimeoutSeconds = 180;
                 if (config.trencherSettings.minBlocksBroken < 0) config.trencherSettings.minBlocksBroken = 20;
+                if (config.bedrockBreakerSettings.stopTimeoutSeconds <= 0) config.bedrockBreakerSettings.stopTimeoutSeconds = 180;
+                if (config.bedrockBreakerSettings.minBlocksBroken < 0) config.bedrockBreakerSettings.minBlocksBroken = 1;
 
                 return config;
             } catch (IOException e) {

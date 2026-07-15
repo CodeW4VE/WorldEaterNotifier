@@ -2,7 +2,7 @@
 
 # WorldEaterNotifier
 
-**Fabric mod for Minecraft that monitors world eaters and trenchers, sending Discord notifications when they stop due to obstruction or inactivity.**
+**Fabric mod that monitors world eaters and trenchers, sending Discord notifications with per‑event ping control when they stop or get obstructed.**
 
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.21-62B47D?logo=minecraft&logoColor=white)](https://www.minecraft.net/)
 [![Fabric](https://img.shields.io/badge/Fabric%20Loader-0.19.3%2B-87CEEB?logo=fabric&logoColor=white)](https://fabricmc.net/)
