@@ -3,9 +3,9 @@ package com.example.worldeaternotifier.mixin;
 import com.example.worldeaternotifier.common.ExplosionBlockCallback;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
-import net.minecraft.world.explosion.Explosion;
+import net.minecraft.world.explosion.ExplosionImpl;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -16,33 +16,36 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.*;
 
-@Mixin(Explosion.class)
+// NOTE (1.21.6 port): In 1.21.2 Mojang refactored explosions. `Explosion` is now an
+// interface (net.minecraft.world.explosion.Explosion) and the real implementation
+// lives in `ExplosionImpl`. The old `affectWorld(boolean)` / `getAffectedBlocks()`
+// pair is gone; block destruction now happens in the private
+// `destroyBlocks(List<BlockPos> positions)` method, which receives the exact list of
+// positions about to be destroyed. That's actually a cleaner hook for us: we no longer
+// need a separate "get affected blocks" call, since the positions arrive as a parameter.
+@Mixin(ExplosionImpl.class)
 public abstract class ExplosionMixin {
 
-    @Shadow @Final private World world;
-
-    @Shadow public abstract List<BlockPos> getAffectedBlocks();
+    @Shadow @Final private ServerWorld world;
 
     @Unique
-    private final Map<BlockPos, BlockState> beforeState = new HashMap<>();
+    private final Map<BlockPos, BlockState> weNotifier$beforeState = new HashMap<>();
 
-    // Capture the state of all affected blocks before the explosion modifies them
-    @Inject(method = "affectWorld", at = @At("HEAD"))
-    private void captureBeforeState(CallbackInfo ci) {
-        beforeState.clear();
-        List<BlockPos> affected = getAffectedBlocks();
-        for (BlockPos pos : affected) {
-            beforeState.put(pos.toImmutable(), world.getBlockState(pos));
+    // Capture the state of all soon-to-be-destroyed blocks before destruction happens
+    @Inject(method = "destroyBlocks", at = @At("HEAD"))
+    private void weNotifier$captureBeforeState(List<BlockPos> positions, CallbackInfo ci) {
+        weNotifier$beforeState.clear();
+        for (BlockPos pos : positions) {
+            weNotifier$beforeState.put(pos.toImmutable(), world.getBlockState(pos));
         }
     }
 
-    // After the explosion, determine which blocks were actually destroyed
-    @Inject(method = "affectWorld", at = @At("TAIL"))
-    private void onAffectWorldTail(CallbackInfo ci) {
-        List<BlockPos> affected = getAffectedBlocks();
+    // After destroyBlocks runs, determine which blocks were actually destroyed
+    @Inject(method = "destroyBlocks", at = @At("TAIL"))
+    private void weNotifier$onDestroyBlocksTail(List<BlockPos> positions, CallbackInfo ci) {
         List<BlockPos> actuallyDestroyed = new ArrayList<>();
-        for (BlockPos pos : affected) {
-            BlockState prev = beforeState.get(pos);
+        for (BlockPos pos : positions) {
+            BlockState prev = weNotifier$beforeState.get(pos);
             if (prev == null) continue;
 
             // Ignore blocks that were already air before the explosion
@@ -56,7 +59,7 @@ public abstract class ExplosionMixin {
                 actuallyDestroyed.add(pos.toImmutable());
             }
         }
-        beforeState.clear();
+        weNotifier$beforeState.clear();
 
         if (!actuallyDestroyed.isEmpty()) {
             ExplosionBlockCallback.EVENT.invoker().onExplosionBlocksDestroyed(world, actuallyDestroyed);
