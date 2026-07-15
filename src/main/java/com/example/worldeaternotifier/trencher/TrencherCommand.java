@@ -3,6 +3,7 @@ package com.example.worldeaternotifier.trencher;
 import com.example.worldeaternotifier.common.BaseMachineDefinition;
 import com.example.worldeaternotifier.common.BaseMachineInstance;
 import com.example.worldeaternotifier.common.DiscordNotifier;
+import com.example.worldeaternotifier.common.PermissionManager;
 import com.example.worldeaternotifier.config.ModConfig;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
@@ -31,6 +32,18 @@ public class TrencherCommand {
         return CommandSource.suggestMatching(names, builder);
     };
 
+    private static final SuggestionProvider<ServerCommandSource> ONLINE_PLAYER_NAMES = (context, builder) -> {
+        ServerCommandSource source = context.getSource();
+        if (source.getServer() == null) return Suggestions.empty();
+        String[] names = source.getServer().getPlayerManager().getPlayerList().stream()
+                .map(p -> p.getGameProfile().getName())
+                .toArray(String[]::new);
+        return CommandSource.suggestMatching(names, builder);
+    };
+
+    private static final SuggestionProvider<ServerCommandSource> WHITELISTED_PLAYER_NAMES = (context, builder) ->
+            CommandSource.suggestMatching(PermissionManager.getWhitelist(), builder);
+
     private static final SuggestionProvider<ServerCommandSource> BLOCK_TARGET_COORDINATE = (context, builder) -> {
         ServerCommandSource source = context.getSource();
         ServerPlayerEntity player = source.getPlayer();
@@ -53,7 +66,7 @@ public class TrencherCommand {
                                 CommandRegistryAccess registryAccess,
                                 CommandManager.RegistrationEnvironment environment) {
         dispatcher.register(literal("trencher")
-                .requires(source -> source.hasPermissionLevel(2))
+                .requires(PermissionManager::canUseCommands)
                 .then(literal("create")
                         .then(argument("name", StringArgumentType.word())
                                 .then(argument("x1", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
@@ -109,6 +122,18 @@ public class TrencherCommand {
                                 .then(literal("onShutdown")
                                         .then(argument("enabled", BoolArgumentType.bool())
                                                 .executes(TrencherCommand::executePingOnShutdown)))
+                        )
+                        .then(literal("whitelist")
+                                .then(literal("list")
+                                        .executes(TrencherCommand::executeWhitelistList))
+                                .then(literal("add")
+                                        .requires(source -> source.hasPermissionLevel(2))
+                                        .then(argument("player", StringArgumentType.word()).suggests(ONLINE_PLAYER_NAMES)
+                                                .executes(TrencherCommand::executeWhitelistAdd)))
+                                .then(literal("remove")
+                                        .requires(source -> source.hasPermissionLevel(2))
+                                        .then(argument("player", StringArgumentType.word()).suggests(WHITELISTED_PLAYER_NAMES)
+                                                .executes(TrencherCommand::executeWhitelistRemove)))
                         )
                 )
         );
@@ -311,6 +336,42 @@ public class TrencherCommand {
         TrencherManager.getInstance().getConfig().trencherSettings.pingSettings.onShutdown = val;
         savePingSettings();
         ctx.getSource().sendFeedback(() -> Text.literal("Shutdown ping " + (val ? "enabled" : "disabled") + "."), true);
+        return 1;
+    }
+
+    // ---- Whitelist ----
+    // Shared with /worldeater — both commands read/write the same config.whitelist list.
+    private static int executeWhitelistList(CommandContext<ServerCommandSource> ctx) {
+        String[] names = PermissionManager.getWhitelist();
+        if (names.length == 0) {
+            ctx.getSource().sendFeedback(() -> Text.literal("Whitelist is empty. Only op players can use the commands."), false);
+            return 1;
+        }
+        ctx.getSource().sendFeedback(() -> Text.literal("---------- Whitelist ----------"), false);
+        for (String name : names) {
+            ctx.getSource().sendFeedback(() -> Text.literal("- " + name), false);
+        }
+        ctx.getSource().sendFeedback(() -> Text.literal("--------------------------------"), false);
+        return 1;
+    }
+
+    private static int executeWhitelistAdd(CommandContext<ServerCommandSource> ctx) {
+        String player = StringArgumentType.getString(ctx, "player");
+        if (PermissionManager.addToWhitelist(player)) {
+            ctx.getSource().sendFeedback(() -> Text.literal("'" + player + "' added to the whitelist."), true);
+        } else {
+            ctx.getSource().sendError(Text.literal("'" + player + "' is already on the whitelist."));
+        }
+        return 1;
+    }
+
+    private static int executeWhitelistRemove(CommandContext<ServerCommandSource> ctx) {
+        String player = StringArgumentType.getString(ctx, "player");
+        if (PermissionManager.removeFromWhitelist(player)) {
+            ctx.getSource().sendFeedback(() -> Text.literal("'" + player + "' removed from the whitelist."), true);
+        } else {
+            ctx.getSource().sendError(Text.literal("'" + player + "' is not on the whitelist."));
+        }
         return 1;
     }
 }

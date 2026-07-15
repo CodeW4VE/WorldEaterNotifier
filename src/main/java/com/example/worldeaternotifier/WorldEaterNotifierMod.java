@@ -3,7 +3,10 @@ package com.example.worldeaternotifier;
 import com.example.worldeaternotifier.common.BaseMachineDefinition;
 import com.example.worldeaternotifier.common.BaseMachineInstance;
 import com.example.worldeaternotifier.common.DiscordNotifier;
+import com.example.worldeaternotifier.common.PermissionManager;
 import com.example.worldeaternotifier.config.ModConfig;
+import com.example.worldeaternotifier.bedrockbreaker.BedrockBreakerCommand;
+import com.example.worldeaternotifier.bedrockbreaker.BedrockBreakerManager;
 import com.example.worldeaternotifier.monitor.MonitorCheckHandler;
 import com.example.worldeaternotifier.trencher.TrencherCommand;
 import com.example.worldeaternotifier.trencher.TrencherManager;
@@ -22,6 +25,7 @@ public class WorldEaterNotifierMod implements ModInitializer {
     public void onInitialize() {
         ModConfig config = ModConfig.load();
         DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId);
+        PermissionManager.setConfig(config);
 
         // Load world eaters – all inactive by default
         WorldEaterManager weManager = WorldEaterManager.getInstance();
@@ -45,6 +49,18 @@ public class WorldEaterNotifierMod implements ModInitializer {
                     saved.maxX, saved.maxY, saved.maxZ, dimKey);
             BaseMachineInstance instance = new BaseMachineInstance(def, "Trencher", config.trencherSettings.pingSettings);
             tManager.loadInstance(instance);
+        }
+
+        // Load bedrock breakers – all inactive by default
+        BedrockBreakerManager bbManager = BedrockBreakerManager.getInstance();
+        bbManager.setConfig(config);
+        for (ModConfig.SavedMachine saved : config.bedrockBreakers) {
+            RegistryKey<World> dimKey = RegistryKey.of(RegistryKeys.WORLD, Identifier.of(saved.dimension));
+            BaseMachineDefinition def = new BaseMachineDefinition(saved.name,
+                    saved.minX, saved.minY, saved.minZ,
+                    saved.maxX, saved.maxY, saved.maxZ, dimKey);
+            BaseMachineInstance instance = new BaseMachineInstance(def, "BedrockBreaker", config.bedrockBreakerSettings.pingSettings);
+            bbManager.loadInstance(instance);
         }
 
         // Register shutdown hook
@@ -73,11 +89,23 @@ public class WorldEaterNotifierMod implements ModInitializer {
                 saved.active = false;
             }
 
+            // Stop all active bedrock breakers and notify
+            for (BaseMachineInstance inst : BedrockBreakerManager.getInstance().getAll()) {
+                if (inst.isActive()) {
+                    DiscordNotifier.sendServerShutdown("BedrockBreaker", inst.getDefinition().name(), inst.getPingSettings());
+                    inst.stop();
+                }
+            }
+            for (ModConfig.SavedMachine saved : cfg.bedrockBreakers) {
+                saved.active = false;
+            }
+
             cfg.save();
         });
 
         MonitorCheckHandler.register();
         CommandRegistrationCallback.EVENT.register(WorldEaterCommand::register);
         CommandRegistrationCallback.EVENT.register(TrencherCommand::register);
+        CommandRegistrationCallback.EVENT.register(BedrockBreakerCommand::register);
     }
 }

@@ -5,6 +5,7 @@ import com.example.worldeaternotifier.common.BaseMachineInstance;
 import com.example.worldeaternotifier.common.DiscordNotifier;
 import com.example.worldeaternotifier.common.ExplosionBlockCallback;
 import com.example.worldeaternotifier.config.ModConfig;
+import com.example.worldeaternotifier.bedrockbreaker.BedrockBreakerManager;
 import com.example.worldeaternotifier.trencher.TrencherManager;
 import com.example.worldeaternotifier.worldeater.WorldEaterManager;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -25,17 +26,26 @@ public class MonitorCheckHandler {
         ExplosionBlockCallback.EVENT.register(MonitorCheckHandler::onExplosionBlocksDestroyed);
     }
 
-    // ---- Explosion callback for TRENCHERS ONLY ----
+    // ---- Explosion callback for block-break machines (TRENCHERS + BEDROCK BREAKERS) ----
     private static void onExplosionBlocksDestroyed(World world, List<BlockPos> affectedBlocks) {
         ModConfig config = TrencherManager.getInstance().getConfig();
         if (config == null) return;
-        int minBlocks = config.trencherSettings.minBlocksBroken;
         long currentTick = world.getTime();
 
+        int trencherMinBlocks = config.trencherSettings.minBlocksBroken;
         for (BaseMachineInstance instance : TrencherManager.getInstance().getAll()) {
             if (!instance.isActive() || !instance.getDefinition().dimension().equals(world.getRegistryKey())) continue;
             int count = countBlocksInside(instance.getDefinition(), affectedBlocks);
-            if (count >= minBlocks) {
+            if (count >= trencherMinBlocks) {
+                instance.updateLastActivityTick(currentTick);
+            }
+        }
+
+        int bedrockBreakerMinBlocks = config.bedrockBreakerSettings.minBlocksBroken;
+        for (BaseMachineInstance instance : BedrockBreakerManager.getInstance().getAll()) {
+            if (!instance.isActive() || !instance.getDefinition().dimension().equals(world.getRegistryKey())) continue;
+            int count = countBlocksInside(instance.getDefinition(), affectedBlocks);
+            if (count >= bedrockBreakerMinBlocks) {
                 instance.updateLastActivityTick(currentTick);
             }
         }
@@ -67,6 +77,13 @@ public class MonitorCheckHandler {
         for (BaseMachineInstance instance : TrencherManager.getInstance().getAll()) {
             if (!instance.isActive() || !instance.getDefinition().dimension().equals(world.getRegistryKey())) continue;
             checkStuck(instance, currentTick, trencherTimeout);
+        }
+
+        // Bedrock breaker checks (block break timeout only, same detection as trenchers)
+        long bedrockBreakerTimeout = config.bedrockBreakerSettings.stopTimeoutSeconds * 20L;
+        for (BaseMachineInstance instance : BedrockBreakerManager.getInstance().getAll()) {
+            if (!instance.isActive() || !instance.getDefinition().dimension().equals(world.getRegistryKey())) continue;
+            checkStuck(instance, currentTick, bedrockBreakerTimeout);
         }
     }
 
