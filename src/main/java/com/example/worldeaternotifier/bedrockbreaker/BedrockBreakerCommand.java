@@ -14,6 +14,8 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.suggestion.Suggestions;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
+import net.minecraft.command.permission.Permission;
+import net.minecraft.command.permission.PermissionLevel;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -36,7 +38,7 @@ public class BedrockBreakerCommand {
         ServerCommandSource source = context.getSource();
         if (source.getServer() == null) return Suggestions.empty();
         String[] names = source.getServer().getPlayerManager().getPlayerList().stream()
-                .map(p -> p.getGameProfile().getName())
+                .map(p -> p.getGameProfile().name())
                 .toArray(String[]::new);
         return CommandSource.suggestMatching(names, builder);
     };
@@ -127,11 +129,11 @@ public class BedrockBreakerCommand {
                                 .then(literal("list")
                                         .executes(BedrockBreakerCommand::executeWhitelistList))
                                 .then(literal("add")
-                                        .requires(source -> source.hasPermissionLevel(2))
+                                        .requires(source -> source.getPermissions().hasPermission(new Permission.Level(PermissionLevel.GAMEMASTERS)))
                                         .then(argument("player", StringArgumentType.word()).suggests(ONLINE_PLAYER_NAMES)
                                                 .executes(BedrockBreakerCommand::executeWhitelistAdd)))
                                 .then(literal("remove")
-                                        .requires(source -> source.hasPermissionLevel(2))
+                                        .requires(source -> source.getPermissions().hasPermission(new Permission.Level(PermissionLevel.GAMEMASTERS)))
                                         .then(argument("player", StringArgumentType.word()).suggests(WHITELISTED_PLAYER_NAMES)
                                                 .executes(BedrockBreakerCommand::executeWhitelistRemove)))
                         )

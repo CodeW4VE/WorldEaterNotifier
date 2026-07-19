@@ -1,6 +1,8 @@
 package com.example.worldeaternotifier.common;
 
 import com.example.worldeaternotifier.config.ModConfig;
+import net.minecraft.command.permission.Permission;
+import net.minecraft.command.permission.PermissionLevel;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -15,6 +17,11 @@ import net.minecraft.server.network.ServerPlayerEntity;
 public class PermissionManager {
     private static ModConfig config;
 
+    // NOTE (1.21.11 port): numeric hasPermissionLevel(int) was replaced by the new
+    // net.minecraft.command.permission API. Old level 2 ("cheats"/op level 2) maps to
+    // PermissionLevel.GAMEMASTERS.
+    private static final Permission OP_LEVEL_2 = new Permission.Level(PermissionLevel.GAMEMASTERS);
+
     private PermissionManager() {}
 
     public static void setConfig(ModConfig cfg) {
@@ -22,7 +29,7 @@ public class PermissionManager {
     }
 
     public static boolean isOp(ServerCommandSource source) {
-        return source.hasPermissionLevel(2);
+        return source.getPermissions().hasPermission(OP_LEVEL_2);
     }
 
     /** Gate for the root of /worldeater and /trencher: op OR whitelisted player. */
@@ -33,7 +40,7 @@ public class PermissionManager {
         ServerPlayerEntity player = source.getPlayer();
         if (player == null) return false; // non-player, non-op source (e.g. a command block)
 
-        return isWhitelisted(player.getGameProfile().getName());
+        return isWhitelisted(player.getGameProfile().name());
     }
 
     public static boolean isWhitelisted(String playerName) {
