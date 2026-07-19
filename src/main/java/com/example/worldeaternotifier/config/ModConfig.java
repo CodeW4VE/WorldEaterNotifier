@@ -41,7 +41,7 @@ public class ModConfig {
     }
 
     public static class BedrockBreakerSettings {
-        public int stopTimeoutSeconds = 180;
+        public int stopTimeoutSeconds = 60;
         public int minBlocksBroken = 1;
         public PingSettings pingSettings = new PingSettings();
     }
