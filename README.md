@@ -91,7 +91,8 @@ Example:
     }
   },
   "worldEaters": [],
-  "trenchers": []
+  "trenchers": [],
+  "whitelist": []
 }
 ```
 
