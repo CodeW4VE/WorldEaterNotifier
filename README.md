@@ -32,9 +32,9 @@ The mod now supports **two independent machine types**: `WorldEater` (detects ac
 ## Requirements
 
 - [Java](https://www.java.com/) 21 or higher
-- [Minecraft](https://www.minecraft.net/) 1.21 server with Fabric loader
-- [Fabric Loader](https://fabricmc.net/) 0.19.3 or higher
-- [Fabric API](https://modrinth.com/mod/fabric-api) 0.100.8+1.21 or compatible
+- [Minecraft](https://www.minecraft.net/) 1.21.11 server with Fabric loader
+- [Fabric Loader](https://fabricmc.net/) 0.16.14 or higher
+- [Fabric API](https://modrinth.com/mod/fabric-api) 0.128.0+1.21.11 or compatible
 
 ## Installation
 
