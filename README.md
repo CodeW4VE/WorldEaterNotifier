@@ -40,7 +40,7 @@ The mod now supports **two independent machine types**: `WorldEater` (detects ac
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/froyln/WorldEaterNotifier.git
+   git clone https://github.com/CodeW4VE/WorldEaterNotifier.git
    cd WorldEaterNotifier
    ```
 
