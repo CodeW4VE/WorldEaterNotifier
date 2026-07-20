@@ -47,7 +47,7 @@ Access to the commands can be restricted to op players and a shared whitelist, s
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/froyln/WorldEaterNotifier.git
+   git clone https://github.com/CodeW4VE/WorldEaterNotifier.git
    cd WorldEaterNotifier
    ```
 
