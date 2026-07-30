@@ -141,6 +141,10 @@ public class TrencherCommand {
                                 .requires(s -> isBotMode())
                                 .then(argument("id", StringArgumentType.word())
                                         .executes(TrencherCommand::executeSetChannelId)))
+                        .then(literal("setMemberDiscordRole")
+                                .requires(s -> isBotMode())
+                                .then(argument("roleId", StringArgumentType.word())
+                                        .executes(TrencherCommand::executeSetMemberDiscordRole)))
                         .then(literal("setNotificationMode")
                                 .then(argument("mode", StringArgumentType.word()).suggests(MODE_SUGGESTIONS)
                                         .executes(TrencherCommand::executeSetNotificationMode)))
@@ -150,6 +154,16 @@ public class TrencherCommand {
                         .then(literal("setMinBlocksBroken")
                                 .then(argument("count", IntegerArgumentType.integer(0))
                                         .executes(TrencherCommand::executeSetMinBlocksBroken)))
+                        .then(literal("showSubscriptionButton")
+                                .then(argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> {
+                                            boolean val = BoolArgumentType.getBool(ctx, "value");
+                                            ModConfig config = TrencherManager.getInstance().getConfig();
+                                            config.showSubscriptionButton = val;
+                                            config.save();
+                                            ctx.getSource().sendFeedback(() -> Text.literal("Subscription button " + (val ? "shown" : "hidden") + " on start messages."), true);
+                                            return 1;
+                                        })))
                         .then(literal("discordPings")
                                 .then(literal("show").executes(TrencherCommand::executePingShow))
                                 .then(literal("enable")
@@ -344,6 +358,15 @@ public class TrencherCommand {
         config.channelId = id;
         config.save();
         ctx.getSource().sendFeedback(() -> Text.literal("Channel ID updated."), true);
+        return 1;
+    }
+
+    private static int executeSetMemberDiscordRole(CommandContext<ServerCommandSource> ctx) {
+        String roleId = StringArgumentType.getString(ctx, "roleId");
+        ModConfig config = TrencherManager.getInstance().getConfig();
+        config.memberDiscordRole = roleId;
+        config.save();
+        ctx.getSource().sendFeedback(() -> Text.literal("Member Discord role ID updated."), true);
         return 1;
     }
 

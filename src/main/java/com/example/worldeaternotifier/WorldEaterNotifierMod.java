@@ -18,12 +18,16 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 
 public class WorldEaterNotifierMod implements ModInitializer {
+    public static MinecraftServer SERVER;
+
     @Override
     public void onInitialize() {
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> SERVER = server);
         ModConfig config = ModConfig.load();
         DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId,
                 config.worldEaterSettings.messages, config.trencherSettings.messages, config.bedrockBreakerSettings.messages);
