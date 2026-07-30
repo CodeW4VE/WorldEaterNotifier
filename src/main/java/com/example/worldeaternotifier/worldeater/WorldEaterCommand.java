@@ -242,7 +242,8 @@ public class WorldEaterCommand {
         ModConfig config = WorldEaterManager.getInstance().getConfig();
         config.webhookUrl = url;
         config.save();
-        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId);
+        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId,
+                config.worldEaterSettings.messages, config.trencherSettings.messages, config.bedrockBreakerSettings.messages);
         ctx.getSource().sendFeedback(() -> Text.literal("Webhook URL updated."), true);
         return 1;
     }
@@ -252,7 +253,8 @@ public class WorldEaterCommand {
         ModConfig config = WorldEaterManager.getInstance().getConfig();
         config.pingRoleId = roleId;
         config.save();
-        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId);
+        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId,
+                config.worldEaterSettings.messages, config.trencherSettings.messages, config.bedrockBreakerSettings.messages);
         ctx.getSource().sendFeedback(() -> Text.literal("Ping Role ID updated."), true);
         return 1;
     }
