@@ -77,7 +77,7 @@ Sent asynchronously via `java.net.http.HttpClient.sendAsync` (webhook mode) or J
 | Mode | Delivery | Settings shown |
 |------|----------|---------------|
 | `webhook` (default) | HTTP POST to webhook URL | `setWebhookUrl`, `setPingRoleId` |
-| `bot` | JDA bot with Subscribe/Unsubscribe buttons | `setBotToken`, `setGuildId`, `setChannelId`, `setPingRoleId` |
+| `bot` | JDA bot with "Toggle Ping" button and slash commands | `setBotToken`, `setGuildId`, `setChannelId`, `setPingRoleId` |
 
 **Dynamic command visibility:** Brigadier `.requires()` predicates on settings subcommands check `config.notificationMode` at runtime — only the relevant settings for the current mode are tab-completable.
 
@@ -90,25 +90,29 @@ Singleton in `bot/` package. Uses JDA 5.2.1 with `GUILD_MEMBERS` intent.
 - **Startup:** `JDA.createDefault(token).build()` returns immediately (non-blocking). Notifications queue internally until WebSocket connects.
 - **Shutdown:** `jda.shutdown()` on server stop or mode switch.
 - **Pending buffer:** If `jda.getStatus() != CONNECTED` when a notification fires, the message is queued (max 50). Flushed on `ReadyEvent`. Cleared on `stop()`.
-- **Buttons:** Subscribe (`wen:sub:<type>:<name>`) adds `pingRoleId` to the clicking member; Unsubscribe removes it. Reply is ephemeral.
+- **Buttons:** Single "Toggle Ping" button (`wen:toggle:<type>:<name>`) adds or removes `pingRoleId` based on current state. Reply is ephemeral. Only shown on start messages (controlled by `showSubscriptionButton` config).
+- **Slash commands:** `/config subscription-button|ping-role|channel|pings` (admin-only), `/worldeater start|stop|list`, `/trencher start|stop|list`, `/bedrockbreaker start|stop|list` (gated by admin or `memberDiscordRole`). The `name` option on `start`/`stop` has autocomplete suggesting existing machines.
+- **`/config pings` interactive flow:** Select machine type → embed with current settings → select setting to change → true/false buttons. After setting, returns to the setting picker so you can keep toggling.
 - **Dynamic lifecycle:** `setBotToken` triggers `restart(token)`. `setNotificationMode` toggles start/stop. Bot reads `guildId`/`channelId` from config at send time — no restart needed.
 
-### Config fields (new in ModConfig)
+### Config fields
 
 ```java
 public String botToken = "";              // Discord bot token
 public String guildId = "";               // Guild ID for role management
 public String channelId = "";             // Channel for bot messages
 public String notificationMode = "webhook"; // "webhook" | "bot"
+public boolean showSubscriptionButton = true; // show toggle button on start messages
+public String memberDiscordRole = "";     // Discord role for start/stop/list access
 ```
 
 ### Configurable messages
 
 Each machine type has its own `messages` block in the JSON config (under `worldEaterSettings`, `trencherSettings`, `bedrockBreakerSettings`). The `MessageTemplates` class holds 5 templates (`start`, `stuck`, `resumed`, `manualStop`, `shutdown`) using `{type}`/`{name}` placeholders. `DiscordNotifier.templatesFor(machineType)` resolves which set to use.
 
-### PingSettings are runtime-only
+### PingSettings persist to JSON
 
-`PingSettings` (booleans: `enabled`, `onStart`, `onStop`, `onStuck`, `onResumed`, `onShutdown`) and their reference in each settings class are marked `transient` — Gson skips them during serialization. They are initialized to defaults on load and modified via `discordPings` commands in-memory. Changes are not persisted to JSON.
+`PingSettings` (booleans: `enabled`, `onStart`, `onStop`, `onStuck`, `onResumed`, `onShutdown`) are serialized to JSON under each machine type's settings block. Modified via `discordPings` in-game commands or `/config pings` Discord slash command. Changes persist across restarts.
 
 ### Permissions
 
