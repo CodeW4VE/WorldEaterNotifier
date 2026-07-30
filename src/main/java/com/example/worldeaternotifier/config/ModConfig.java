@@ -15,6 +15,10 @@ public class ModConfig {
 
     public String webhookUrl = "";
     public String pingRoleId = "";   // empty or "0" means no mention
+    public String botToken = "";
+    public String guildId = "";
+    public String channelId = "";
+    public String notificationMode = "webhook";
 
     public WorldEaterSettings worldEaterSettings = new WorldEaterSettings();
     public TrencherSettings trencherSettings = new TrencherSettings();
