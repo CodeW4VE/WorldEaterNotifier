@@ -18,7 +18,9 @@ public class ModConfig {
     public String botToken = "";
     public String guildId = "";
     public String channelId = "";
+    public String memberDiscordRole = "";
     public String notificationMode = "webhook";
+    public boolean showSubscriptionButton = true;
 
     public WorldEaterSettings worldEaterSettings = new WorldEaterSettings();
     public TrencherSettings trencherSettings = new TrencherSettings();
@@ -35,31 +37,31 @@ public class ModConfig {
     public static class WorldEaterSettings {
         public int stopTimeoutSeconds = 60;
         public int minTntCount = 20;
-        public transient PingSettings pingSettings = new PingSettings();
+        public PingSettings pingSettings = new PingSettings();
         public MessageTemplates messages = new MessageTemplates();
     }
 
     public static class TrencherSettings {
         public int stopTimeoutSeconds = 180;
         public int minBlocksBroken = 3;
-        public transient PingSettings pingSettings = new PingSettings();
+        public PingSettings pingSettings = new PingSettings();
         public MessageTemplates messages = new MessageTemplates();
     }
 
     public static class BedrockBreakerSettings {
         public int stopTimeoutSeconds = 60;
         public int minBlocksBroken = 1;
-        public transient PingSettings pingSettings = new PingSettings();
+        public PingSettings pingSettings = new PingSettings();
         public MessageTemplates messages = new MessageTemplates();
     }
 
     public static class PingSettings {
-        public transient boolean enabled = true;
-        public transient boolean onStart = true;
-        public transient boolean onStop = true;
-        public transient boolean onStuck = true;
-        public transient boolean onResumed = true;
-        public transient boolean onShutdown = true;
+        public boolean enabled = true;
+        public boolean onStart = true;
+        public boolean onStop = true;
+        public boolean onStuck = true;
+        public boolean onResumed = true;
+        public boolean onShutdown = true;
     }
 
     public static class MessageTemplates {

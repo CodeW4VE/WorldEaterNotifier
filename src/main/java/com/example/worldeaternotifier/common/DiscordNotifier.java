@@ -93,8 +93,10 @@ public class DiscordNotifier {
     }
 
     public static void sendStart(String machineType, String machineName, PingSettings pings) {
+        var config = WorldEaterManager.getInstance().getConfig();
+        boolean withButton = config != null && config.showSubscriptionButton;
         send(fmt(templatesFor(machineType).start, machineType, machineName),
-                machineType, machineName, pings.enabled && pings.onStart, true);
+                machineType, machineName, pings.enabled && pings.onStart, withButton);
     }
 
     public static void sendStuck(String machineType, String machineName, PingSettings pings) {

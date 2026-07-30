@@ -141,6 +141,10 @@ public class WorldEaterCommand {
                                 .requires(s -> isBotMode())
                                 .then(argument("id", StringArgumentType.word())
                                         .executes(WorldEaterCommand::executeSetChannelId)))
+                        .then(literal("setMemberDiscordRole")
+                                .requires(s -> isBotMode())
+                                .then(argument("roleId", StringArgumentType.word())
+                                        .executes(WorldEaterCommand::executeSetMemberDiscordRole)))
                         .then(literal("setNotificationMode")
                                 .then(argument("mode", StringArgumentType.word()).suggests(MODE_SUGGESTIONS)
                                         .executes(WorldEaterCommand::executeSetNotificationMode)))
@@ -150,6 +154,16 @@ public class WorldEaterCommand {
                         .then(literal("setMinTntCount")
                                 .then(argument("count", IntegerArgumentType.integer(1))
                                         .executes(WorldEaterCommand::executeSetMinTntCount)))
+                        .then(literal("showSubscriptionButton")
+                                .then(argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> {
+                                            boolean val = BoolArgumentType.getBool(ctx, "value");
+                                            ModConfig config = WorldEaterManager.getInstance().getConfig();
+                                            config.showSubscriptionButton = val;
+                                            config.save();
+                                            ctx.getSource().sendFeedback(() -> Text.literal("Subscription button " + (val ? "shown" : "hidden") + " on start messages."), true);
+                                            return 1;
+                                        })))
                         .then(literal("discordPings")
                                 .then(literal("show").executes(WorldEaterCommand::executePingShow))
                                 .then(literal("enable")
@@ -344,6 +358,15 @@ public class WorldEaterCommand {
         config.channelId = id;
         config.save();
         ctx.getSource().sendFeedback(() -> Text.literal("Channel ID updated."), true);
+        return 1;
+    }
+
+    private static int executeSetMemberDiscordRole(CommandContext<ServerCommandSource> ctx) {
+        String roleId = StringArgumentType.getString(ctx, "roleId");
+        ModConfig config = WorldEaterManager.getInstance().getConfig();
+        config.memberDiscordRole = roleId;
+        config.save();
+        ctx.getSource().sendFeedback(() -> Text.literal("Member Discord role ID updated."), true);
         return 1;
     }
 
