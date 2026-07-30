@@ -55,21 +55,22 @@ public class WorldEaterCommand {
     private static final SuggestionProvider<ServerCommandSource> MODE_SUGGESTIONS = (context, builder) ->
             CommandSource.suggestMatching(new String[]{"webhook", "bot"}, builder);
 
-    private static final SuggestionProvider<ServerCommandSource> BLOCK_TARGET_COORDINATE = (context, builder) -> {
-        ServerCommandSource source = context.getSource();
-        ServerPlayerEntity player = source.getPlayer();
-        if (player == null) return Suggestions.empty();
-        BlockPos pos = player.getBlockPos();
-        String argName = context.getNodes().get(context.getNodes().size() - 1).getNode().getName();
-        int value = switch (argName) {
-            case "x1", "x2" -> pos.getX();
-            case "y1", "y2" -> pos.getY();
-            case "z1", "z2" -> pos.getZ();
-            default -> -1;
-        };
-        if (value != -1) {
-            builder.suggest(String.valueOf(value));
-        }
+    private static final SuggestionProvider<ServerCommandSource> SUGGEST_X = (ctx, builder) -> {
+        ServerPlayerEntity p = ctx.getSource().getPlayer();
+        if (p == null) return Suggestions.empty();
+        builder.suggest(String.valueOf(p.getBlockPos().getX()));
+        return builder.buildFuture();
+    };
+    private static final SuggestionProvider<ServerCommandSource> SUGGEST_Y = (ctx, builder) -> {
+        ServerPlayerEntity p = ctx.getSource().getPlayer();
+        if (p == null) return Suggestions.empty();
+        builder.suggest(String.valueOf(p.getBlockPos().getY()));
+        return builder.buildFuture();
+    };
+    private static final SuggestionProvider<ServerCommandSource> SUGGEST_Z = (ctx, builder) -> {
+        ServerPlayerEntity p = ctx.getSource().getPlayer();
+        if (p == null) return Suggestions.empty();
+        builder.suggest(String.valueOf(p.getBlockPos().getZ()));
         return builder.buildFuture();
     };
 
@@ -101,12 +102,12 @@ public class WorldEaterCommand {
                 .requires(PermissionManager::canUseCommands)
                 .then(literal("create")
                         .then(argument("name", StringArgumentType.word())
-                                .then(argument("x1", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
-                                        .then(argument("y1", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
-                                                .then(argument("z1", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
-                                                        .then(argument("x2", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
-                                                                .then(argument("y2", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
-                                                                        .then(argument("z2", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
+                                .then(argument("x1", IntegerArgumentType.integer()).suggests(SUGGEST_X)
+                                        .then(argument("y1", IntegerArgumentType.integer()).suggests(SUGGEST_Y)
+                                                .then(argument("z1", IntegerArgumentType.integer()).suggests(SUGGEST_Z)
+                                                        .then(argument("x2", IntegerArgumentType.integer()).suggests(SUGGEST_X)
+                                                                .then(argument("y2", IntegerArgumentType.integer()).suggests(SUGGEST_Y)
+                                                                        .then(argument("z2", IntegerArgumentType.integer()).suggests(SUGGEST_Z)
                                                                                 .executes(WorldEaterCommand::executeCreate)
                                                                         ))))))))
                 .then(literal("start")
