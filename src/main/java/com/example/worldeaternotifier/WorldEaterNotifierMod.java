@@ -24,7 +24,8 @@ public class WorldEaterNotifierMod implements ModInitializer {
     @Override
     public void onInitialize() {
         ModConfig config = ModConfig.load();
-        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId);
+        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId,
+                config.worldEaterSettings.messages, config.trencherSettings.messages, config.bedrockBreakerSettings.messages);
         PermissionManager.setConfig(config);
 
         // Load world eaters – all inactive by default

@@ -31,28 +31,39 @@ public class ModConfig {
     public static class WorldEaterSettings {
         public int stopTimeoutSeconds = 60;
         public int minTntCount = 20;
-        public PingSettings pingSettings = new PingSettings();
+        public transient PingSettings pingSettings = new PingSettings();
+        public MessageTemplates messages = new MessageTemplates();
     }
 
     public static class TrencherSettings {
         public int stopTimeoutSeconds = 180;
         public int minBlocksBroken = 3;
-        public PingSettings pingSettings = new PingSettings();
+        public transient PingSettings pingSettings = new PingSettings();
+        public MessageTemplates messages = new MessageTemplates();
     }
 
     public static class BedrockBreakerSettings {
         public int stopTimeoutSeconds = 60;
         public int minBlocksBroken = 1;
-        public PingSettings pingSettings = new PingSettings();
+        public transient PingSettings pingSettings = new PingSettings();
+        public MessageTemplates messages = new MessageTemplates();
     }
 
     public static class PingSettings {
-        public boolean enabled = true;          // global ping switch
-        public boolean onStart = true;
-        public boolean onStop = true;           // manual stop
-        public boolean onStuck = true;
-        public boolean onResumed = true;
-        public boolean onShutdown = true;
+        public transient boolean enabled = true;
+        public transient boolean onStart = true;
+        public transient boolean onStop = true;
+        public transient boolean onStuck = true;
+        public transient boolean onResumed = true;
+        public transient boolean onShutdown = true;
+    }
+
+    public static class MessageTemplates {
+        public String start = "{type} **'{name}'** has started.";
+        public String stuck = "{type} **'{name}'** has stopped due to an obstruction.";
+        public String resumed = "{type} **'{name}'** has started again.";
+        public String manualStop = "{type} **'{name}'** was stopped manually.";
+        public String shutdown = "{type} **'{name}'** was shut down with the server and may have broken.";
     }
 
     public static class SavedMachine {
@@ -85,8 +96,11 @@ public class ModConfig {
                 if (config.trencherSettings == null) config.trencherSettings = new TrencherSettings();
                 if (config.bedrockBreakerSettings == null) config.bedrockBreakerSettings = new BedrockBreakerSettings();
                 if (config.worldEaterSettings.pingSettings == null) config.worldEaterSettings.pingSettings = new PingSettings();
+                if (config.worldEaterSettings.messages == null) config.worldEaterSettings.messages = new MessageTemplates();
                 if (config.trencherSettings.pingSettings == null) config.trencherSettings.pingSettings = new PingSettings();
+                if (config.trencherSettings.messages == null) config.trencherSettings.messages = new MessageTemplates();
                 if (config.bedrockBreakerSettings.pingSettings == null) config.bedrockBreakerSettings.pingSettings = new PingSettings();
+                if (config.bedrockBreakerSettings.messages == null) config.bedrockBreakerSettings.messages = new MessageTemplates();
 
                 // Apply defaults if values are invalid
                 if (config.worldEaterSettings.stopTimeoutSeconds <= 0) config.worldEaterSettings.stopTimeoutSeconds = 60;

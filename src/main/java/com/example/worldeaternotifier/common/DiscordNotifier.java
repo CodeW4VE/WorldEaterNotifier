@@ -1,5 +1,6 @@
 package com.example.worldeaternotifier.common;
 
+import com.example.worldeaternotifier.config.ModConfig.MessageTemplates;
 import com.example.worldeaternotifier.config.ModConfig.PingSettings;
 
 import java.net.URI;
@@ -14,18 +15,37 @@ public class DiscordNotifier {
             .build();
 
     private static String webhookUrl;
-    private static String pingRoleId;   // can be empty or "0"
+    private static String pingRoleId;
+    private static MessageTemplates weMessages;
+    private static MessageTemplates trencherMessages;
+    private static MessageTemplates bbMessages;
 
-    public static void setConfig(String webhookUrl, String pingRoleId) {
+    public static void setConfig(String webhookUrl, String pingRoleId,
+                                 MessageTemplates we, MessageTemplates trencher, MessageTemplates bb) {
         DiscordNotifier.webhookUrl = webhookUrl;
         DiscordNotifier.pingRoleId = pingRoleId;
+        DiscordNotifier.weMessages = we;
+        DiscordNotifier.trencherMessages = trencher;
+        DiscordNotifier.bbMessages = bb;
     }
 
-    // Builds the mention string only if the role ID is valid (not empty or "0")
+    private static MessageTemplates templatesFor(String machineType) {
+        return switch (machineType) {
+            case "WorldEater" -> weMessages;
+            case "Trencher" -> trencherMessages;
+            case "BedrockBreaker" -> bbMessages;
+            default -> weMessages;
+        };
+    }
+
     private static String buildMentionIfAllowed(boolean mentionAllowed) {
         if (!mentionAllowed) return "";
         if (pingRoleId == null || pingRoleId.isBlank() || pingRoleId.equals("0")) return "";
         return "<@&" + pingRoleId + "> ";
+    }
+
+    private static String fmt(String template, String type, String name) {
+        return template.replace("{type}", type).replace("{name}", name);
     }
 
     private static void send(String content) {
@@ -49,26 +69,26 @@ public class DiscordNotifier {
 
     public static void sendStart(String machineType, String machineName, PingSettings pings) {
         String mention = buildMentionIfAllowed(pings.enabled && pings.onStart);
-        send(mention + machineType + " **'" + machineName + "'** has started.");
+        send(mention + fmt(templatesFor(machineType).start, machineType, machineName));
     }
 
     public static void sendStuck(String machineType, String machineName, PingSettings pings) {
         String mention = buildMentionIfAllowed(pings.enabled && pings.onStuck);
-        send(mention + machineType + " **'" + machineName + "'** has stopped due to an obstruction.");
+        send(mention + fmt(templatesFor(machineType).stuck, machineType, machineName));
     }
 
     public static void sendResumed(String machineType, String machineName, PingSettings pings) {
         String mention = buildMentionIfAllowed(pings.enabled && pings.onResumed);
-        send(mention + machineType + " **'" + machineName + "'** has started again.");
+        send(mention + fmt(templatesFor(machineType).resumed, machineType, machineName));
     }
 
     public static void sendManuallyStopped(String machineType, String machineName, PingSettings pings) {
         String mention = buildMentionIfAllowed(pings.enabled && pings.onStop);
-        send(mention + machineType + " **'" + machineName + "'** was stopped manually.");
+        send(mention + fmt(templatesFor(machineType).manualStop, machineType, machineName));
     }
 
     public static void sendServerShutdown(String machineType, String machineName, PingSettings pings) {
         String mention = buildMentionIfAllowed(pings.enabled && pings.onShutdown);
-        send(mention + machineType + " **'" + machineName + "'** was shut down with the server and may have broken.");
+        send(mention + fmt(templatesFor(machineType).shutdown, machineType, machineName));
     }
 }
