@@ -25,9 +25,10 @@ Fabric mod that monitors **world eaters** (TNT-based), **trenchers**, and **bedr
 - **Discord integration**: Sends instant notifications when a machine starts, stops, resumes, or is manually stopped.
 - **Customizable messages**: Every notification message is configurable per machine type via JSON — use `{type}` and `{name}` placeholders.
 - **Role-based notifications**: Mention specific Discord roles with per‑event toggles (global, start, manual stop, stuck, resumed, server shutdown). All configurable in‑game via commands.
+- **Discord bot mode**: JDA-powered bot with interactive toggle button and slash commands (`/config`, `/worldeater start|stop|list`, `/trencher start|stop|list`, `/bedrockbreaker start|stop|list`) with autocomplete.
 - **Configurable thresholds**: Stop timeout, minimum TNT count / blocks broken per machine type.
 - **Multi-world support**: Monitor machines across different dimensions.
-- **Persistent configuration**: Machine definitions and settings survive server restarts. Messages are editable in JSON.
+- **Persistent configuration**: Machine definitions, settings, and ping toggles survive server restarts. Messages are editable in JSON.
 - **Server shutdown detection**: Automatically stops all active machines on shutdown and notifies Discord.
 
 ## Requirements
@@ -67,9 +68,23 @@ Example:
 {
   "webhookUrl": "https://discord.com/api/webhooks/...",
   "pingRoleId": "123456789012345678",
+  "notificationMode": "webhook",
+  "botToken": "",
+  "guildId": "",
+  "channelId": "",
+  "showSubscriptionButton": true,
+  "memberDiscordRole": "",
   "worldEaterSettings": {
     "stopTimeoutSeconds": 60,
     "minTntCount": 3,
+    "pingSettings": {
+      "enabled": true,
+      "onStart": true,
+      "onStop": true,
+      "onStuck": true,
+      "onResumed": true,
+      "onShutdown": true
+    },
     "messages": {
       "start": "{type} **'{name}'** has started.",
       "stuck": "{type} **'{name}'** has stopped due to an obstruction.",
@@ -81,6 +96,14 @@ Example:
   "trencherSettings": {
     "stopTimeoutSeconds": 180,
     "minBlocksBroken": 20,
+    "pingSettings": {
+      "enabled": true,
+      "onStart": true,
+      "onStop": true,
+      "onStuck": true,
+      "onResumed": true,
+      "onShutdown": true
+    },
     "messages": {
       "start": "{type} **'{name}'** has started.",
       "stuck": "{type} **'{name}'** has stopped due to an obstruction.",
@@ -92,6 +115,14 @@ Example:
   "bedrockBreakerSettings": {
     "stopTimeoutSeconds": 60,
     "minBlocksBroken": 1,
+    "pingSettings": {
+      "enabled": true,
+      "onStart": true,
+      "onStop": true,
+      "onStuck": true,
+      "onResumed": true,
+      "onShutdown": true
+    },
     "messages": {
       "start": "{type} **'{name}'** has started.",
       "stuck": "{type} **'{name}'** has stopped due to an obstruction.",
@@ -109,32 +140,44 @@ Example:
 
 - **webhookUrl**: Discord webhook URL.
 - **pingRoleId**: ID of the Discord role to mention. Leave empty or `"0"` to disable all mentions.
+- **notificationMode**: `"webhook"` (default) or `"bot"` — switches between webhook and JDA bot delivery.
+- **botToken**: Discord bot token (required for bot mode).
+- **guildId** / **channelId**: Discord guild and channel for bot notifications and slash commands.
+- **showSubscriptionButton**: Whether to show the "Toggle Ping" button on start messages (bot mode).
+- **memberDiscordRole**: Discord role ID that gates `/worldeater start|stop|list` (and trencher/bedrockbreaker equivalents) via slash commands; admins always have access.
 - **stopTimeoutSeconds**: How many seconds without activity before the machine is considered stuck.
 - **minTntCount / minBlocksBroken**: Minimum activity per check to keep the machine alive.
+- **pingSettings**: Per-machine-type ping toggles (`enabled`, `onStart`, `onStop`, `onStuck`, `onResumed`, `onShutdown`) — these now **persist** across restarts.
 - **messages**: Customizable Discord notification messages per machine type. Use `{type}` for the machine type name and `{name}` for the machine instance name.
-
-Ping toggles (which events trigger role mentions) are configured in‑game via `discordPings` commands — they are not persisted in JSON.
 
 ## Usage
 
-1. Install the mod and start your server.  
-2. Configure the webhook and role ID with `/worldeater settings setWebhookUrl <url>` (shared across all types).  
+1. Install the mod and start your server.
+2. Configure delivery:
+   - **Webhook mode** (default): `/worldeater settings setWebhookUrl <url>`
+   - **Bot mode**: `/worldeater settings setBotToken <token>`, set `setGuildId` and `setChannelId`, then `/worldeater settings setNotificationMode bot`
 3. Create machines:
-   - `/worldeater create <name> <x1> <y1> <z1> <x2> <y2> <z2>`  
-   - `/trencher create <name> <x1> <y1> <z1> <x2> <y2> <z2>`  
-   - `/bedrockbreaker create <name> <x1> <y1> <z1> <x2> <y2> <z2>`  
+   - `/worldeater create <name> <x1> <y1> <z1> <x2> <y2> <z2>`
+   - `/trencher create <name> <x1> <y1> <z1> <x2> <y2> <z2>`
+   - `/bedrockbreaker create <name> <x1> <y1> <z1> <x2> <y2> <z2>`
    (Coordinates auto‑suggest the block you stand on; `Tab` completes names.)
 4. Start monitoring with `/worldeater start <name>`, `/trencher start <name>`, or `/bedrockbreaker start <name>`.
 5. The mod automatically sends Discord messages when a machine stops unexpectedly (stuck), resumes, or is manually stopped.
-6. Adjust settings on the fly:
+6. In bot mode, Discord slash commands mirror the Minecraft commands:
+   - `/worldeater start <name>`, `/worldeater stop <name>`, `/worldeater list` (autocomplete suggests existing names)
+   - Same for `/trencher` and `/bedrockbreaker`
+   - `/config pings` — interactive flow to toggle per-machine-type ping settings
+7. Adjust settings on the fly:
    - `/worldeater settings show`, `/trencher settings show`, `/bedrockbreaker settings show`
    - `/worldeater settings setStopTimeout <seconds>`
    - `/trencher settings setMinBlocksBroken <count>`
    - `/worldeater settings discordPings enable true` and individual events like `onStuck false`
+   - `/worldeater settings showSubscriptionButton <true|false>` (bot mode)
+   - `/worldeater settings setMemberDiscordRole <roleId>` (bot mode)
    - Edit notification messages directly in the JSON file.
    - Use `Tab` to explore all subcommands.
-7. Manage machines: `list`, `stop`, `delete` for all three types.
-8. When the server shuts down, all active machines are stopped and a shutdown notification is sent.
+8. Manage machines: `list`, `stop`, `delete` for all three types.
+9. When the server shuts down, all active machines are stopped and a shutdown notification is sent.
 
 ## Dependencies
 
