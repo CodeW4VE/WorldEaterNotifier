@@ -70,6 +70,14 @@ Each machine type follows the same pattern: a `*Manager` (singleton, in-memory `
 
 Sent asynchronously via `java.net.http.HttpClient.sendAsync`. Methods: `sendStart`, `sendStuck`, `sendResumed`, `sendManuallyStopped`, `sendServerShutdown`. Ping built from `buildMentionIfAllowed` using `pingRoleId` and per-event toggles.
 
+### Configurable messages
+
+Each machine type has its own `messages` block in the JSON config (under `worldEaterSettings`, `trencherSettings`, `bedrockBreakerSettings`). The `MessageTemplates` class holds 5 templates (`start`, `stuck`, `resumed`, `manualStop`, `shutdown`) using `{type}`/`{name}` placeholders. `DiscordNotifier.templatesFor(machineType)` resolves which set to use.
+
+### PingSettings are runtime-only
+
+`PingSettings` (booleans: `enabled`, `onStart`, `onStop`, `onStuck`, `onResumed`, `onShutdown`) and their reference in each settings class are marked `transient` — Gson skips them during serialization. They are initialized to defaults on load and modified via `discordPings` commands in-memory. Changes are not persisted to JSON.
+
 ### Permissions
 
 - Op players (permission level GAMEMASTERS/2+) can always use commands.
