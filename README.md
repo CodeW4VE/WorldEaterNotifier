@@ -17,17 +17,18 @@
 
 ## What is it?
 
-The mod now supports **two independent machine types**: `WorldEater` (detects activity via lit TNT count) and `Trencher` (detects activity via actual block destruction from explosions, ignoring TNT blocks). Each type has its own configurable stop timeout, minimum activity thresholds, and Discord ping settings.
+Fabric mod that monitors **world eaters** (TNT-based), **trenchers**, and **bedrock breakers** (block destruction-based), sending Discord webhook notifications with per‑event ping control and fully customizable messages when they stop, start, or get obstructed.
 
 ## Features
 
-- **Real-time monitoring**: Tracks world eaters (TNT-based) and trenchers (block break-based).
-- **Discord integration**: Sends instant notifications when a machine stops, starts, resumes, or is stopped manually.
-- **Role-based notifications**: Mention specific Discord roles with configurable per‑event toggles (global, start, manual stop, stuck, resumed, server shutdown). Mentions can be disabled while still sending the message.
-- **Configurable**: Customize webhook, role ID, stop timeout, and minimum activity thresholds for each machine type.
+- **Real-time monitoring**: Tracks world eaters (TNT count), trenchers, and bedrock breakers (block destruction).
+- **Discord integration**: Sends instant notifications when a machine starts, stops, resumes, or is manually stopped.
+- **Customizable messages**: Every notification message is configurable per machine type via JSON — use `{type}` and `{name}` placeholders.
+- **Role-based notifications**: Mention specific Discord roles with per‑event toggles (global, start, manual stop, stuck, resumed, server shutdown). All configurable in‑game via commands.
+- **Configurable thresholds**: Stop timeout, minimum TNT count / blocks broken per machine type.
 - **Multi-world support**: Monitor machines across different dimensions.
-- **Persistent configuration**: Machine definitions and settings survive server restarts.
-- **Server shutdown detection**: Automatically stops all active machines when the server shuts down and notifies Discord.
+- **Persistent configuration**: Machine definitions and settings survive server restarts. Messages are editable in JSON.
+- **Server shutdown detection**: Automatically stops all active machines on shutdown and notifies Discord.
 
 ## Requirements
 
@@ -69,29 +70,39 @@ Example:
   "worldEaterSettings": {
     "stopTimeoutSeconds": 60,
     "minTntCount": 3,
-    "pingSettings": {
-      "enabled": true,
-      "onStart": true,
-      "onStop": true,
-      "onStuck": true,
-      "onResumed": true,
-      "onShutdown": true
+    "messages": {
+      "start": "{type} **'{name}'** has started.",
+      "stuck": "{type} **'{name}'** has stopped due to an obstruction.",
+      "resumed": "{type} **'{name}'** has started again.",
+      "manualStop": "{type} **'{name}'** was stopped manually.",
+      "shutdown": "{type} **'{name}'** was shut down with the server and may have broken."
     }
   },
   "trencherSettings": {
     "stopTimeoutSeconds": 180,
     "minBlocksBroken": 20,
-    "pingSettings": {
-      "enabled": true,
-      "onStart": true,
-      "onStop": true,
-      "onStuck": true,
-      "onResumed": true,
-      "onShutdown": true
+    "messages": {
+      "start": "{type} **'{name}'** has started.",
+      "stuck": "{type} **'{name}'** has stopped due to an obstruction.",
+      "resumed": "{type} **'{name}'** has started again.",
+      "manualStop": "{type} **'{name}'** was stopped manually.",
+      "shutdown": "{type} **'{name}'** was shut down with the server and may have broken."
+    }
+  },
+  "bedrockBreakerSettings": {
+    "stopTimeoutSeconds": 60,
+    "minBlocksBroken": 1,
+    "messages": {
+      "start": "{type} **'{name}'** has started.",
+      "stuck": "{type} **'{name}'** has stopped due to an obstruction.",
+      "resumed": "{type} **'{name}'** has started again.",
+      "manualStop": "{type} **'{name}'** was stopped manually.",
+      "shutdown": "{type} **'{name}'** was shut down with the server and may have broken."
     }
   },
   "worldEaters": [],
   "trenchers": [],
+  "bedrockBreakers": [],
   "whitelist": []
 }
 ```
@@ -100,27 +111,29 @@ Example:
 - **pingRoleId**: ID of the Discord role to mention. Leave empty or `"0"` to disable all mentions.
 - **stopTimeoutSeconds**: How many seconds without activity before the machine is considered stuck.
 - **minTntCount / minBlocksBroken**: Minimum activity per check to keep the machine alive.
-- **pingSettings**: Toggle global mentions (`enabled`) and individual event notifications.
+- **messages**: Customizable Discord notification messages per machine type. Use `{type}` for the machine type name and `{name}` for the machine instance name.
 
-All settings can be changed in‑game without restart.
+Ping toggles (which events trigger role mentions) are configured in‑game via `discordPings` commands — they are not persisted in JSON.
 
 ## Usage
 
 1. Install the mod and start your server.  
-2. Configure the webhook and role ID with `/worldeater settings setWebhookUrl <url>` and `/trencher settings setWebhookUrl <url>` (they share the same webhook).  
+2. Configure the webhook and role ID with `/worldeater settings setWebhookUrl <url>` (shared across all types).  
 3. Create machines:
    - `/worldeater create <name> <x1> <y1> <z1> <x2> <y2> <z2>`  
    - `/trencher create <name> <x1> <y1> <z1> <x2> <y2> <z2>`  
+   - `/bedrockbreaker create <name> <x1> <y1> <z1> <x2> <y2> <z2>`  
    (Coordinates auto‑suggest the block you stand on; `Tab` completes names.)
-4. Start monitoring with `/worldeater start <name>` or `/trencher start <name>`.
-5. The mod will automatically send Discord messages when a machine stops unexpectedly (stuck), resumes, or when it is manually stopped.
+4. Start monitoring with `/worldeater start <name>`, `/trencher start <name>`, or `/bedrockbreaker start <name>`.
+5. The mod automatically sends Discord messages when a machine stops unexpectedly (stuck), resumes, or is manually stopped.
 6. Adjust settings on the fly:
-   - `/worldeater settings show` / `/trencher settings show`
+   - `/worldeater settings show`, `/trencher settings show`, `/bedrockbreaker settings show`
    - `/worldeater settings setStopTimeout <seconds>`
    - `/trencher settings setMinBlocksBroken <count>`
    - `/worldeater settings discordPings enable true` and individual events like `onStuck false`
-   - And more – use `Tab` to explore.
-7. Manage machines: `list`, `stop`, `delete` for both `/worldeater` and `/trencher`.
+   - Edit notification messages directly in the JSON file.
+   - Use `Tab` to explore all subcommands.
+7. Manage machines: `list`, `stop`, `delete` for all three types.
 8. When the server shuts down, all active machines are stopped and a shutdown notification is sent.
 
 ## Dependencies
