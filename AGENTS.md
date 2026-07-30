@@ -33,6 +33,8 @@ src/main/java/com/example/worldeaternotifier/
 ├── bedrockbreaker/
 │   ├── BedrockBreakerManager.java      # Singleton registry + CRUD for BedrockBreaker instances
 │   └── BedrockBreakerCommand.java      # Brigadier command tree for /bedrockbreaker
+├── bot/
+│   └── DiscordBotManager.java          # JDA lifecycle, pending buffer, button interactions
 ├── monitor/
 │   └── MonitorCheckHandler.java        # Per-tick + explosion callback logic
 └── mixin/
@@ -68,7 +70,37 @@ Each machine type follows the same pattern: a `*Manager` (singleton, in-memory `
 
 ### Discord notifications
 
-Sent asynchronously via `java.net.http.HttpClient.sendAsync`. Methods: `sendStart`, `sendStuck`, `sendResumed`, `sendManuallyStopped`, `sendServerShutdown`. Ping built from `buildMentionIfAllowed` using `pingRoleId` and per-event toggles.
+Sent asynchronously via `java.net.http.HttpClient.sendAsync` (webhook mode) or JDA (bot mode). Methods: `sendStart`, `sendStuck`, `sendResumed`, `sendManuallyStopped`, `sendServerShutdown`. Ping built from `buildMentionIfAllowed` using `pingRoleId` and per-event toggles.
+
+### Notification modes (`config.notificationMode`)
+
+| Mode | Delivery | Settings shown |
+|------|----------|---------------|
+| `webhook` (default) | HTTP POST to webhook URL | `setWebhookUrl`, `setPingRoleId` |
+| `bot` | JDA bot with Subscribe/Unsubscribe buttons | `setBotToken`, `setGuildId`, `setChannelId`, `setPingRoleId` |
+
+**Dynamic command visibility:** Brigadier `.requires()` predicates on settings subcommands check `config.notificationMode` at runtime — only the relevant settings for the current mode are tab-completable.
+
+**Start guard:** `executeStart()` in all three commands calls `isDeliveryConfigured()` — refuses to start if the current mode's requirements aren't met (webhook → `webhookUrl` non-blank; bot → `botToken`+`guildId`+`channelId` all non-blank).
+
+### Bot mode (`DiscordBotManager`)
+
+Singleton in `bot/` package. Uses JDA 5.2.1 with `GUILD_MEMBERS` intent.
+
+- **Startup:** `JDA.createDefault(token).build()` returns immediately (non-blocking). Notifications queue internally until WebSocket connects.
+- **Shutdown:** `jda.shutdown()` on server stop or mode switch.
+- **Pending buffer:** If `jda.getStatus() != CONNECTED` when a notification fires, the message is queued (max 50). Flushed on `ReadyEvent`. Cleared on `stop()`.
+- **Buttons:** Subscribe (`wen:sub:<type>:<name>`) adds `pingRoleId` to the clicking member; Unsubscribe removes it. Reply is ephemeral.
+- **Dynamic lifecycle:** `setBotToken` triggers `restart(token)`. `setNotificationMode` toggles start/stop. Bot reads `guildId`/`channelId` from config at send time — no restart needed.
+
+### Config fields (new in ModConfig)
+
+```java
+public String botToken = "";              // Discord bot token
+public String guildId = "";               // Guild ID for role management
+public String channelId = "";             // Channel for bot messages
+public String notificationMode = "webhook"; // "webhook" | "bot"
+```
 
 ### Configurable messages
 

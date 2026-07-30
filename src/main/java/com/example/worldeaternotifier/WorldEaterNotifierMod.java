@@ -1,5 +1,6 @@
 package com.example.worldeaternotifier;
 
+import com.example.worldeaternotifier.bot.DiscordBotManager;
 import com.example.worldeaternotifier.common.BaseMachineDefinition;
 import com.example.worldeaternotifier.common.BaseMachineInstance;
 import com.example.worldeaternotifier.common.DiscordNotifier;
@@ -27,6 +28,10 @@ public class WorldEaterNotifierMod implements ModInitializer {
         DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId,
                 config.worldEaterSettings.messages, config.trencherSettings.messages, config.bedrockBreakerSettings.messages);
         PermissionManager.setConfig(config);
+
+        if ("bot".equals(config.notificationMode) && !config.botToken.isBlank()) {
+            DiscordBotManager.getInstance().start(config.botToken);
+        }
 
         // Load world eaters – all inactive by default
         WorldEaterManager weManager = WorldEaterManager.getInstance();
@@ -102,6 +107,8 @@ public class WorldEaterNotifierMod implements ModInitializer {
             }
 
             cfg.save();
+
+            DiscordBotManager.getInstance().stop();
         });
 
         MonitorCheckHandler.register();
