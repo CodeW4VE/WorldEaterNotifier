@@ -13,16 +13,9 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.suggestion.Suggestions;
-import com.mojang.brigadier.tree.ArgumentCommandNode;
-import com.mojang.brigadier.tree.CommandNode;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
-import net.minecraft.command.permission.Permission;
-import net.minecraft.command.permission.PermissionLevel;
-import net.minecraft.network.packet.s2c.play.CommandTreeS2CPacket;
-import net.minecraft.network.packet.s2c.play.CommandTreeS2CPacket.CommandNodeInspector;
 import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.Identifier;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -44,7 +37,7 @@ public class BedrockBreakerCommand {
         ServerCommandSource source = context.getSource();
         if (source.getServer() == null) return Suggestions.empty();
         String[] names = source.getServer().getPlayerManager().getPlayerList().stream()
-                .map(p -> p.getGameProfile().name())
+                .map(p -> p.getGameProfile().getName())
                 .toArray(String[]::new);
         return CommandSource.suggestMatching(names, builder);
     };
@@ -156,6 +149,7 @@ public class BedrockBreakerCommand {
                                 .then(argument("count", IntegerArgumentType.integer(0))
                                         .executes(BedrockBreakerCommand::executeSetMinBlocksBroken)))
                         .then(literal("showSubscriptionButton")
+                                .requires(s -> isBotMode())
                                 .then(argument("value", BoolArgumentType.bool())
                                         .executes(ctx -> {
                                             boolean val = BoolArgumentType.getBool(ctx, "value");
@@ -190,11 +184,11 @@ public class BedrockBreakerCommand {
                                 .then(literal("list")
                                         .executes(BedrockBreakerCommand::executeWhitelistList))
                                 .then(literal("add")
-                                        .requires(source -> source.getPermissions().hasPermission(new Permission.Level(PermissionLevel.GAMEMASTERS)))
+                                        .requires(source -> source.hasPermissionLevel(2))
                                         .then(argument("player", StringArgumentType.word()).suggests(ONLINE_PLAYER_NAMES)
                                                 .executes(BedrockBreakerCommand::executeWhitelistAdd)))
                                 .then(literal("remove")
-                                        .requires(source -> source.getPermissions().hasPermission(new Permission.Level(PermissionLevel.GAMEMASTERS)))
+                                        .requires(source -> source.hasPermissionLevel(2))
                                         .then(argument("player", StringArgumentType.word()).suggests(WHITELISTED_PLAYER_NAMES)
                                                 .executes(BedrockBreakerCommand::executeWhitelistRemove)))
                         )
@@ -317,8 +311,6 @@ public class BedrockBreakerCommand {
         ModConfig config = BedrockBreakerManager.getInstance().getConfig();
         config.webhookUrl = url;
         config.save();
-        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId,
-                config.worldEaterSettings.messages, config.trencherSettings.messages, config.bedrockBreakerSettings.messages);
         ctx.getSource().sendFeedback(() -> Text.literal("Webhook URL updated."), true);
         return 1;
     }
@@ -328,8 +320,6 @@ public class BedrockBreakerCommand {
         ModConfig config = BedrockBreakerManager.getInstance().getConfig();
         config.pingRoleId = roleId;
         config.save();
-        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId,
-                config.worldEaterSettings.messages, config.trencherSettings.messages, config.bedrockBreakerSettings.messages);
         ctx.getSource().sendFeedback(() -> Text.literal("Ping Role ID updated."), true);
         return 1;
     }
@@ -391,24 +381,9 @@ public class BedrockBreakerCommand {
         } else if ("webhook".equals(mode) && !"webhook".equals(prev)) {
             DiscordBotManager.getInstance().stop();
         }
-        syncCommandTree(ctx);
+        // ponytail: syncCommandTree skipped — CommandNodeInspector is 1.21.11+ only; players see .requires() changes on rejoin
         ctx.getSource().sendFeedback(() -> Text.literal("Notification mode set to '" + mode + "'."), true);
         return 1;
-    }
-
-    private static void syncCommandTree(CommandContext<ServerCommandSource> ctx) {
-        var server = ctx.getSource().getServer();
-        if (server == null) return;
-        var root = server.getCommandManager().getDispatcher().getRoot();
-        CommandNodeInspector<ServerCommandSource> inspector = new CommandNodeInspector<>() {
-            public Identifier getSuggestionProviderId(ArgumentCommandNode<ServerCommandSource, ?> node) { return null; }
-            public boolean isExecutable(CommandNode<ServerCommandSource> node) { return true; }
-            public boolean hasRequiredLevel(CommandNode<ServerCommandSource> node) { return true; }
-        };
-        var packet = new CommandTreeS2CPacket(root, inspector);
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            player.networkHandler.sendPacket(packet);
-        }
     }
 
     private static int executeSetStopTimeout(CommandContext<ServerCommandSource> ctx) {

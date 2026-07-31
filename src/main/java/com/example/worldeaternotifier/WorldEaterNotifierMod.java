@@ -29,8 +29,6 @@ public class WorldEaterNotifierMod implements ModInitializer {
     public void onInitialize() {
         ServerLifecycleEvents.SERVER_STARTED.register(server -> SERVER = server);
         ModConfig config = ModConfig.load();
-        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId,
-                config.worldEaterSettings.messages, config.trencherSettings.messages, config.bedrockBreakerSettings.messages);
         PermissionManager.setConfig(config);
 
         if ("bot".equals(config.notificationMode) && !config.botToken.isBlank()) {

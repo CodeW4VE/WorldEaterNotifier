@@ -181,7 +181,9 @@ public class DiscordBotManager {
                                                     .addOption(OptionType.ROLE, "role", "The role to ping", true),
                                             new SubcommandData("channel", "Set the channel for notifications")
                                                     .addOption(OptionType.CHANNEL, "channel", "The notification channel", true),
-                                            new SubcommandData("pings", "Configure ping settings for a machine type")
+                                            new SubcommandData("pings", "Configure ping settings for a machine type"),
+                                            new SubcommandData("member-discord-role", "Set the role for start/stop/list access")
+                                                    .addOption(OptionType.ROLE, "role", "The Discord role", true)
                                     ),
                             Commands.slash("worldeater", "Manage world eaters")
                                     .addSubcommands(
@@ -493,6 +495,12 @@ public class DiscordBotManager {
                             .addActionRow(select)
                             .setEphemeral(true)
                             .queue();
+                }
+                case "member-discord-role" -> {
+                    Role role = event.getOption("role").getAsRole();
+                    cfg.memberDiscordRole = role.getId();
+                    cfg.save();
+                    event.reply("Member role set to " + role.getAsMention() + ".").setEphemeral(true).queue();
                 }
                 default -> event.reply("Unknown config subcommand.").setEphemeral(true).queue();
             }
