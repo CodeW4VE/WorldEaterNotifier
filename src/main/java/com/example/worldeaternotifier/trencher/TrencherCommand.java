@@ -156,6 +156,7 @@ public class TrencherCommand {
                                 .then(argument("count", IntegerArgumentType.integer(0))
                                         .executes(TrencherCommand::executeSetMinBlocksBroken)))
                         .then(literal("showSubscriptionButton")
+                                .requires(s -> isBotMode())
                                 .then(argument("value", BoolArgumentType.bool())
                                         .executes(ctx -> {
                                             boolean val = BoolArgumentType.getBool(ctx, "value");
