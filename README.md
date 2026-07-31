@@ -19,6 +19,11 @@
 
 Fabric mod that monitors **world eaters** (TNT-based), **trenchers**, and **bedrock breakers** (block destruction-based), sending Discord webhook notifications with per‑event ping control and fully customizable messages when they stop, start, or get obstructed.
 
+## Documentation
+
+**For a complete guide on how to configure all the features please visit the documentation:**
+**[WorldEaterNotifier Documentation](https://codew4ve.github.io/WorldEaterNotifier/)**
+
 ## Features
 
 - **Real-time monitoring**: Tracks world eaters (TNT count), trenchers, and bedrock breakers (block destruction).
