@@ -156,6 +156,7 @@ public class BedrockBreakerCommand {
                                 .then(argument("count", IntegerArgumentType.integer(0))
                                         .executes(BedrockBreakerCommand::executeSetMinBlocksBroken)))
                         .then(literal("showSubscriptionButton")
+                                .requires(s -> isBotMode())
                                 .then(argument("value", BoolArgumentType.bool())
                                         .executes(ctx -> {
                                             boolean val = BoolArgumentType.getBool(ctx, "value");

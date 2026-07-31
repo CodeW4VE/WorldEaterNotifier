@@ -156,6 +156,7 @@ public class WorldEaterCommand {
                                 .then(argument("count", IntegerArgumentType.integer(1))
                                         .executes(WorldEaterCommand::executeSetMinTntCount)))
                         .then(literal("showSubscriptionButton")
+                                .requires(s -> isBotMode())
                                 .then(argument("value", BoolArgumentType.bool())
                                         .executes(ctx -> {
                                             boolean val = BoolArgumentType.getBool(ctx, "value");
