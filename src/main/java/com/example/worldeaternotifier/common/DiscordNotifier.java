@@ -1,6 +1,7 @@
 package com.example.worldeaternotifier.common;
 
 import com.example.worldeaternotifier.bot.DiscordBotManager;
+import com.example.worldeaternotifier.config.ModConfig;
 import com.example.worldeaternotifier.config.ModConfig.MessageTemplates;
 import com.example.worldeaternotifier.config.ModConfig.PingSettings;
 import com.example.worldeaternotifier.worldeater.WorldEaterManager;
@@ -16,44 +17,46 @@ public class DiscordNotifier {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
-    private static String webhookUrl;
-    private static String pingRoleId;
-    private static MessageTemplates weMessages;
-    private static MessageTemplates trencherMessages;
-    private static MessageTemplates bbMessages;
-
-    public static void setConfig(String webhookUrl, String pingRoleId,
-                                 MessageTemplates we, MessageTemplates trencher, MessageTemplates bb) {
-        DiscordNotifier.webhookUrl = webhookUrl;
-        DiscordNotifier.pingRoleId = pingRoleId;
-        DiscordNotifier.weMessages = we;
-        DiscordNotifier.trencherMessages = trencher;
-        DiscordNotifier.bbMessages = bb;
+    private static ModConfig config() {
+        return WorldEaterManager.getInstance().getConfig();
     }
 
     private static String notificationMode() {
-        var config = WorldEaterManager.getInstance().getConfig();
+        var config = config();
         return config == null ? "webhook" : config.notificationMode;
     }
 
     private static String channelId() {
-        var config = WorldEaterManager.getInstance().getConfig();
+        var config = config();
         return config == null ? "" : config.channelId;
     }
 
+    private static String pingRoleId() {
+        var config = config();
+        return config == null ? "" : config.pingRoleId;
+    }
+
+    private static String webhookUrl() {
+        var config = config();
+        return config == null ? "" : config.webhookUrl;
+    }
+
     private static MessageTemplates templatesFor(String machineType) {
+        var config = config();
+        if (config == null) return new MessageTemplates();
         return switch (machineType) {
-            case "WorldEater" -> weMessages;
-            case "Trencher" -> trencherMessages;
-            case "BedrockBreaker" -> bbMessages;
-            default -> weMessages;
+            case "WorldEater" -> config.worldEaterSettings.messages;
+            case "Trencher" -> config.trencherSettings.messages;
+            case "BedrockBreaker" -> config.bedrockBreakerSettings.messages;
+            default -> config.worldEaterSettings.messages;
         };
     }
 
     private static String buildMentionIfAllowed(boolean mentionAllowed) {
         if (!mentionAllowed) return "";
-        if (pingRoleId == null || pingRoleId.isBlank() || pingRoleId.equals("0")) return "";
-        return "<@&" + pingRoleId + "> ";
+        String roleId = pingRoleId();
+        if (roleId == null || roleId.isBlank() || roleId.equals("0")) return "";
+        return "<@&" + roleId + "> ";
     }
 
     private static String fmt(String template, String type, String name) {
@@ -67,18 +70,19 @@ public class DiscordNotifier {
         } else if ("bot".equals(mode)) {
             DiscordBotManager bot = DiscordBotManager.getInstance();
             if (bot.isRunning()) {
-                bot.sendNotification(channelId(), content, pingRoleId, shouldMention, machineType, machineName, withButton);
+                bot.sendNotification(channelId(), content, pingRoleId(), shouldMention, machineType, machineName, withButton);
             }
         }
     }
 
     private static void sendWebhook(String content, boolean shouldMention) {
-        if (webhookUrl == null || webhookUrl.isBlank()) return;
+        String url = webhookUrl();
+        if (url == null || url.isBlank()) return;
         String fullContent = buildMentionIfAllowed(shouldMention) + content;
         try {
             String json = "{\"content\":\"" + fullContent.replace("\\", "\\\\").replace("\"", "\\\"") + "\"}";
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(webhookUrl))
+                    .uri(URI.create(url))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(json))
                     .build();
@@ -93,7 +97,7 @@ public class DiscordNotifier {
     }
 
     public static void sendStart(String machineType, String machineName, PingSettings pings) {
-        var config = WorldEaterManager.getInstance().getConfig();
+        var config = config();
         boolean withButton = config != null && config.showSubscriptionButton;
         send(fmt(templatesFor(machineType).start, machineType, machineName),
                 machineType, machineName, pings.enabled && pings.onStart, withButton);
