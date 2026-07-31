@@ -7,6 +7,7 @@ import com.example.worldeaternotifier.common.PermissionManager;
 import com.example.worldeaternotifier.config.ModConfig;
 import com.example.worldeaternotifier.bedrockbreaker.BedrockBreakerCommand;
 import com.example.worldeaternotifier.bedrockbreaker.BedrockBreakerManager;
+import com.example.worldeaternotifier.bot.DiscordBotManager;
 import com.example.worldeaternotifier.monitor.MonitorCheckHandler;
 import com.example.worldeaternotifier.trencher.TrencherCommand;
 import com.example.worldeaternotifier.trencher.TrencherManager;
@@ -17,15 +18,22 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 
 public class WorldEaterNotifierMod implements ModInitializer {
+    public static MinecraftServer SERVER;
+
     @Override
     public void onInitialize() {
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> SERVER = server);
         ModConfig config = ModConfig.load();
-        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId);
         PermissionManager.setConfig(config);
+
+        if ("bot".equals(config.notificationMode) && !config.botToken.isBlank()) {
+            DiscordBotManager.getInstance().start(config.botToken);
+        }
 
         // Load world eaters – all inactive by default
         WorldEaterManager weManager = WorldEaterManager.getInstance();
@@ -101,6 +109,8 @@ public class WorldEaterNotifierMod implements ModInitializer {
             }
 
             cfg.save();
+
+            DiscordBotManager.getInstance().stop();
         });
 
         MonitorCheckHandler.register();

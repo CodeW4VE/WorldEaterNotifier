@@ -1,5 +1,6 @@
 package com.example.worldeaternotifier.worldeater;
 
+import com.example.worldeaternotifier.bot.DiscordBotManager;
 import com.example.worldeaternotifier.common.BaseMachineDefinition;
 import com.example.worldeaternotifier.common.BaseMachineInstance;
 import com.example.worldeaternotifier.common.DiscordNotifier;
@@ -12,8 +13,10 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.tree.RootCommandNode;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
+import net.minecraft.network.packet.s2c.play.CommandTreeS2CPacket;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -44,23 +47,48 @@ public class WorldEaterCommand {
     private static final SuggestionProvider<ServerCommandSource> WHITELISTED_PLAYER_NAMES = (context, builder) ->
             CommandSource.suggestMatching(PermissionManager.getWhitelist(), builder);
 
-    private static final SuggestionProvider<ServerCommandSource> BLOCK_TARGET_COORDINATE = (context, builder) -> {
-        ServerCommandSource source = context.getSource();
-        ServerPlayerEntity player = source.getPlayer();
-        if (player == null) return Suggestions.empty();
-        BlockPos pos = player.getBlockPos();  // block the player is standing on
-        String argName = context.getNodes().get(context.getNodes().size() - 1).getNode().getName();
-        int value = switch (argName) {
-            case "x1", "x2" -> pos.getX();
-            case "y1", "y2" -> pos.getY();
-            case "z1", "z2" -> pos.getZ();
-            default -> -1;
-        };
-        if (value != -1) {
-            builder.suggest(String.valueOf(value));
-        }
+    private static final SuggestionProvider<ServerCommandSource> MODE_SUGGESTIONS = (context, builder) ->
+            CommandSource.suggestMatching(new String[]{"webhook", "bot"}, builder);
+
+    private static final SuggestionProvider<ServerCommandSource> SUGGEST_X = (ctx, builder) -> {
+        ServerPlayerEntity p = ctx.getSource().getPlayer();
+        if (p == null) return Suggestions.empty();
+        builder.suggest(String.valueOf(p.getBlockPos().getX()));
         return builder.buildFuture();
     };
+    private static final SuggestionProvider<ServerCommandSource> SUGGEST_Y = (ctx, builder) -> {
+        ServerPlayerEntity p = ctx.getSource().getPlayer();
+        if (p == null) return Suggestions.empty();
+        builder.suggest(String.valueOf(p.getBlockPos().getY()));
+        return builder.buildFuture();
+    };
+    private static final SuggestionProvider<ServerCommandSource> SUGGEST_Z = (ctx, builder) -> {
+        ServerPlayerEntity p = ctx.getSource().getPlayer();
+        if (p == null) return Suggestions.empty();
+        builder.suggest(String.valueOf(p.getBlockPos().getZ()));
+        return builder.buildFuture();
+    };
+
+    private static boolean isWebhookMode() {
+        ModConfig config = WorldEaterManager.getInstance().getConfig();
+        return config != null && "webhook".equals(config.notificationMode);
+    }
+
+    private static boolean isBotMode() {
+        ModConfig config = WorldEaterManager.getInstance().getConfig();
+        return config != null && "bot".equals(config.notificationMode);
+    }
+
+    private static boolean isDeliveryConfigured() {
+        ModConfig config = WorldEaterManager.getInstance().getConfig();
+        if (config == null) return false;
+        if ("webhook".equals(config.notificationMode)) {
+            return !config.webhookUrl.isBlank();
+        } else if ("bot".equals(config.notificationMode)) {
+            return !config.botToken.isBlank() && !config.guildId.isBlank() && !config.channelId.isBlank();
+        }
+        return false;
+    }
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher,
                                 CommandRegistryAccess registryAccess,
@@ -69,12 +97,12 @@ public class WorldEaterCommand {
                 .requires(PermissionManager::canUseCommands)
                 .then(literal("create")
                         .then(argument("name", StringArgumentType.word())
-                                .then(argument("x1", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
-                                        .then(argument("y1", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
-                                                .then(argument("z1", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
-                                                        .then(argument("x2", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
-                                                                .then(argument("y2", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
-                                                                        .then(argument("z2", IntegerArgumentType.integer()).suggests(BLOCK_TARGET_COORDINATE)
+                                .then(argument("x1", IntegerArgumentType.integer()).suggests(SUGGEST_X)
+                                        .then(argument("y1", IntegerArgumentType.integer()).suggests(SUGGEST_Y)
+                                                .then(argument("z1", IntegerArgumentType.integer()).suggests(SUGGEST_Z)
+                                                        .then(argument("x2", IntegerArgumentType.integer()).suggests(SUGGEST_X)
+                                                                .then(argument("y2", IntegerArgumentType.integer()).suggests(SUGGEST_Y)
+                                                                        .then(argument("z2", IntegerArgumentType.integer()).suggests(SUGGEST_Z)
                                                                                 .executes(WorldEaterCommand::executeCreate)
                                                                         ))))))))
                 .then(literal("start")
@@ -91,17 +119,48 @@ public class WorldEaterCommand {
                 .then(literal("settings")
                         .then(literal("show").executes(WorldEaterCommand::executeSettingsShow))
                         .then(literal("setWebhookUrl")
+                                .requires(s -> isWebhookMode())
                                 .then(argument("url", StringArgumentType.greedyString())
                                         .executes(WorldEaterCommand::executeSetWebhookUrl)))
                         .then(literal("setPingRoleId")
                                 .then(argument("roleId", StringArgumentType.word())
                                         .executes(WorldEaterCommand::executeSetPingRoleId)))
+                        .then(literal("setBotToken")
+                                .requires(s -> isBotMode())
+                                .then(argument("token", StringArgumentType.greedyString())
+                                        .executes(WorldEaterCommand::executeSetBotToken)))
+                        .then(literal("setGuildId")
+                                .requires(s -> isBotMode())
+                                .then(argument("id", StringArgumentType.word())
+                                        .executes(WorldEaterCommand::executeSetGuildId)))
+                        .then(literal("setChannelId")
+                                .requires(s -> isBotMode())
+                                .then(argument("id", StringArgumentType.word())
+                                        .executes(WorldEaterCommand::executeSetChannelId)))
+                        .then(literal("setMemberDiscordRole")
+                                .requires(s -> isBotMode())
+                                .then(argument("roleId", StringArgumentType.word())
+                                        .executes(WorldEaterCommand::executeSetMemberDiscordRole)))
+                        .then(literal("setNotificationMode")
+                                .then(argument("mode", StringArgumentType.word()).suggests(MODE_SUGGESTIONS)
+                                        .executes(WorldEaterCommand::executeSetNotificationMode)))
                         .then(literal("setStopTimeout")
                                 .then(argument("seconds", IntegerArgumentType.integer(1))
                                         .executes(WorldEaterCommand::executeSetStopTimeout)))
                         .then(literal("setMinTntCount")
                                 .then(argument("count", IntegerArgumentType.integer(1))
                                         .executes(WorldEaterCommand::executeSetMinTntCount)))
+                        .then(literal("showSubscriptionButton")
+                                .requires(s -> isBotMode())
+                                .then(argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> {
+                                            boolean val = BoolArgumentType.getBool(ctx, "value");
+                                            ModConfig config = WorldEaterManager.getInstance().getConfig();
+                                            config.showSubscriptionButton = val;
+                                            config.save();
+                                            ctx.getSource().sendFeedback(() -> Text.literal("Subscription button " + (val ? "shown" : "hidden") + " on start messages."), true);
+                                            return 1;
+                                        })))
                         .then(literal("discordPings")
                                 .then(literal("show").executes(WorldEaterCommand::executePingShow))
                                 .then(literal("enable")
@@ -176,6 +235,10 @@ public class WorldEaterCommand {
             ctx.getSource().sendError(Text.literal("World eater '" + name + "' is already active."));
             return 0;
         }
+        if (!isDeliveryConfigured()) {
+            ctx.getSource().sendError(Text.literal("Cannot start: notification delivery not configured. Use /worldeater settings setWebhookUrl or setBotToken/setGuildId/setChannelId first."));
+            return 0;
+        }
         manager.start(name);
         ctx.getSource().sendFeedback(() -> Text.literal("World eater '" + name + "' started."), true);
         DiscordNotifier.sendStart("WorldEater", name, manager.getConfig().worldEaterSettings.pingSettings);
@@ -227,12 +290,22 @@ public class WorldEaterCommand {
     private static int executeSettingsShow(CommandContext<ServerCommandSource> ctx) {
         ModConfig config = WorldEaterManager.getInstance().getConfig();
         ctx.getSource().sendFeedback(() -> Text.literal("---------- World Eater Settings ----------"), false);
+        ctx.getSource().sendFeedback(() -> Text.literal("Notification mode: " + config.notificationMode), false);
         ctx.getSource().sendFeedback(() -> Text.literal("Webhook URL: " + (config.webhookUrl.isBlank() ? "not set" : config.webhookUrl)), false);
         ctx.getSource().sendFeedback(() -> Text.literal("Ping Role ID: " + (config.pingRoleId.isBlank() || config.pingRoleId.equals("0") ? "none" : config.pingRoleId)), false);
+        ctx.getSource().sendFeedback(() -> Text.literal("Bot token: " + maskToken(config.botToken)), false);
+        ctx.getSource().sendFeedback(() -> Text.literal("Guild ID: " + (config.guildId.isBlank() ? "not set" : config.guildId)), false);
+        ctx.getSource().sendFeedback(() -> Text.literal("Channel ID: " + (config.channelId.isBlank() ? "not set" : config.channelId)), false);
         ctx.getSource().sendFeedback(() -> Text.literal("Stop timeout: " + config.worldEaterSettings.stopTimeoutSeconds + " seconds"), false);
         ctx.getSource().sendFeedback(() -> Text.literal("Min TNT count: " + config.worldEaterSettings.minTntCount), false);
         ctx.getSource().sendFeedback(() -> Text.literal("------------------------------------------"), false);
         return 1;
+    }
+
+    private static String maskToken(String token) {
+        if (token == null || token.isBlank()) return "not set";
+        if (token.length() <= 8) return "****";
+        return token.substring(0, 4) + "****" + token.substring(token.length() - 4);
     }
 
     private static int executeSetWebhookUrl(CommandContext<ServerCommandSource> ctx) {
@@ -240,7 +313,6 @@ public class WorldEaterCommand {
         ModConfig config = WorldEaterManager.getInstance().getConfig();
         config.webhookUrl = url;
         config.save();
-        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId);
         ctx.getSource().sendFeedback(() -> Text.literal("Webhook URL updated."), true);
         return 1;
     }
@@ -250,9 +322,80 @@ public class WorldEaterCommand {
         ModConfig config = WorldEaterManager.getInstance().getConfig();
         config.pingRoleId = roleId;
         config.save();
-        DiscordNotifier.setConfig(config.webhookUrl, config.pingRoleId);
         ctx.getSource().sendFeedback(() -> Text.literal("Ping Role ID updated."), true);
         return 1;
+    }
+
+    private static int executeSetBotToken(CommandContext<ServerCommandSource> ctx) {
+        String token = StringArgumentType.getString(ctx, "token");
+        ModConfig config = WorldEaterManager.getInstance().getConfig();
+        config.botToken = token;
+        config.save();
+        DiscordBotManager.getInstance().restart(token);
+        ctx.getSource().sendFeedback(() -> Text.literal("Bot token updated and bot restarted."), true);
+        return 1;
+    }
+
+    private static int executeSetGuildId(CommandContext<ServerCommandSource> ctx) {
+        String id = StringArgumentType.getString(ctx, "id");
+        ModConfig config = WorldEaterManager.getInstance().getConfig();
+        config.guildId = id;
+        config.save();
+        ctx.getSource().sendFeedback(() -> Text.literal("Guild ID updated."), true);
+        return 1;
+    }
+
+    private static int executeSetChannelId(CommandContext<ServerCommandSource> ctx) {
+        String id = StringArgumentType.getString(ctx, "id");
+        ModConfig config = WorldEaterManager.getInstance().getConfig();
+        config.channelId = id;
+        config.save();
+        ctx.getSource().sendFeedback(() -> Text.literal("Channel ID updated."), true);
+        return 1;
+    }
+
+    private static int executeSetMemberDiscordRole(CommandContext<ServerCommandSource> ctx) {
+        String roleId = StringArgumentType.getString(ctx, "roleId");
+        ModConfig config = WorldEaterManager.getInstance().getConfig();
+        config.memberDiscordRole = roleId;
+        config.save();
+        ctx.getSource().sendFeedback(() -> Text.literal("Member Discord role ID updated."), true);
+        return 1;
+    }
+
+    private static int executeSetNotificationMode(CommandContext<ServerCommandSource> ctx) {
+        String mode = StringArgumentType.getString(ctx, "mode");
+        if (!"webhook".equals(mode) && !"bot".equals(mode)) {
+            ctx.getSource().sendError(Text.literal("Invalid mode. Use 'webhook' or 'bot'."));
+            return 0;
+        }
+        ModConfig config = WorldEaterManager.getInstance().getConfig();
+        String prev = config.notificationMode;
+        config.notificationMode = mode;
+        config.save();
+
+        if ("bot".equals(mode) && !"bot".equals(prev)) {
+            if (!config.botToken.isBlank()) {
+                DiscordBotManager.getInstance().start(config.botToken);
+            } else {
+                ctx.getSource().sendFeedback(() -> Text.literal("Switched to bot mode, but no bot token is set. Use setBotToken to configure."), true);
+            }
+        } else if ("webhook".equals(mode) && !"webhook".equals(prev)) {
+            DiscordBotManager.getInstance().stop();
+        }
+        syncCommandTree(ctx);
+        ctx.getSource().sendFeedback(() -> Text.literal("Notification mode set to '" + mode + "'."), true);
+        return 1;
+    }
+
+    private static void syncCommandTree(CommandContext<ServerCommandSource> ctx) {
+        var server = ctx.getSource().getServer();
+        if (server == null) return;
+        var root = (RootCommandNode<CommandSource>) (RootCommandNode<?>) server.getCommandManager().getDispatcher().getRoot();
+        var packet = new CommandTreeS2CPacket(root);
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            player.networkHandler.sendPacket(packet);
+        }
     }
 
     private static int executeSetStopTimeout(CommandContext<ServerCommandSource> ctx) {
@@ -340,7 +483,6 @@ public class WorldEaterCommand {
     }
 
     // ---- Whitelist ----
-    // Shared with /trencher — both commands read/write the same config.whitelist list.
     private static int executeWhitelistList(CommandContext<ServerCommandSource> ctx) {
         String[] names = PermissionManager.getWhitelist();
         if (names.length == 0) {
