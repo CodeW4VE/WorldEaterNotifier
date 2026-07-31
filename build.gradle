@@ -11,6 +11,11 @@ base {
 }
 
 repositories {
+	mavenCentral()
+}
+
+configurations {
+	shade { transitive = true }
 }
 
 dependencies {
@@ -21,6 +26,21 @@ dependencies {
 
 	// Fabric API
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+	// Discord bot (JDA) for interactive notifications
+	shade("net.dv8tion:JDA:5.2.1") {
+		exclude module: "opus-java"
+	}
+	modImplementation("net.dv8tion:JDA:5.2.1") {
+		exclude module: "opus-java"
+	}
+}
+
+jar {
+	from {
+		configurations.shade.files.collect { it.isDirectory() ? it : zipTree(it) }
+	}
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 processResources {

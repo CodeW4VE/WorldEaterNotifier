@@ -3,7 +3,7 @@
   "id": "worldeaternotifier",
   "version": "${version}",
   "name": "World Eater Notifier",
-  "description": "Notifies a Discord role when world eaters or trenchers stop.",
+  "description": "Notifies a Discord role when world eaters/trenchers/bedrock breakers stop.",
   "authors": ["Kisde"],
   "contact": {},
   "icon": "assets/worldeaternotifier/icon.png",
