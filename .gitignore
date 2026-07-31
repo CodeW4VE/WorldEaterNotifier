@@ -1,71 +1,20 @@
-# Gradle
-.gradle/
-build/
-out/
-classes/
-!gradle/wrapper/gradle-wrapper.jar
-!gradle/wrapper/gradle-wrapper.properties
-.gradletasknamecache
+# Dependencies
+/node_modules
 
-# Eclipse
-*.launch
-.settings/
-.classpath
-.project
-bin/
+# Production
+/build
 
-# IntelliJ IDEA
-.idea/
-*.iml
-*.ipr
-*.iws
-out/
+# Generated files
+.docusaurus
+.cache-loader
 
-# VS Code
-.vscode/
-*.code-workspace
-
-# macOS
-*.DS_Store
-.AppleDouble
-.LSOverride
-
-# Fabric
-run/
-remapped_working/
-loom-cache/
-.loom-cache/
-
-# Java
-hs_err_*.log
-replay_*.log
-*.hprof
-*.jfr
-*.class
-*.jar
-*.war
-*.ear
-
-# Environment & Config
-.env
+# Misc
+.DS_Store
 .env.local
-local.properties
-worldeaternotifier-config.json
-/config/
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Minecraft
-crash-reports/
-screenshots/
-*.log
-
-# IDE
-.c9/
-*.sublime-workspace
-*.swp
-*.swo
-*~
-
-# OS
-Thumbs.db
-ehthumbs.db
-desktop.ini
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
