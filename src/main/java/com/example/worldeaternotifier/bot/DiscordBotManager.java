@@ -484,6 +484,12 @@ public class DiscordBotManager {
                     cfg.save();
                     event.reply("Notification channel set to " + channel.getAsMention() + ".").setEphemeral(true).queue();
                 }
+                case "member-discord-role" -> {
+                    Role role = event.getOption("role").getAsRole();
+                    cfg.memberDiscordRole = role.getId();
+                    cfg.save();
+                    event.reply("Member role set to " + role.getAsMention() + ".").setEphemeral(true).queue();
+                }
                 case "pings" -> {
                     var select = StringSelectMenu.create("wen:pings:type")
                             .setPlaceholder("Select machine type")
