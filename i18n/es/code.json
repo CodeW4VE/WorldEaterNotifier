@@ -1,32 +1,4 @@
 {
-  "home.cta": {
-    "message": "Empezar",
-    "description": "The CTA button on the home page"
-  },
-  "home.feature.monitor.title": {
-    "message": "Vigila tus máquinas",
-    "description": "Home feature card title"
-  },
-  "home.feature.monitor.description": {
-    "message": "Vigila tus máquinas y te notifica en Discord cuando algo sucede: tu World Eater se para, tu Trencher deja de romper bloques, tu Bedrock Breaker se rompe.",
-    "description": "Home feature card description"
-  },
-  "home.feature.machineTypes.title": {
-    "message": "Tres tipos de máquina",
-    "description": "Home feature card title"
-  },
-  "home.feature.machineTypes.description": {
-    "message": "World Eater (detección por conteo de TNT), Trencher y Bedrock Breaker (detección por destrucción de bloques con explosiones).",
-    "description": "Home feature card description"
-  },
-  "home.feature.delivery.title": {
-    "message": "Dos modos de entrega a Discord",
-    "description": "Home feature card title"
-  },
-  "home.feature.delivery.description": {
-    "message": "Modo webhook (predeterminado) — webhook HTTP simple, sin necesidad de bot. Modo bot — bot de Discord con JDA que incluye comandos de barra y un botón interactivo \"Toggle Ping\".",
-    "description": "Home feature card description"
-  },
   "theme.ErrorPageContent.title": {
     "message": "Esta página ha fallado.",
     "description": "The title of the fallback page when the page crashed"
