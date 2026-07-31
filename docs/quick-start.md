@@ -4,15 +4,7 @@ sidebar_position: 1
 
 # Quick Start
 
-
 The fastest way to get WorldEaterNotifier running with a webhook (the default delivery mode).
-
-## Requirements
-
-- **Java 21** or higher
-- **Minecraft 1.21.11** server
-- **Fabric Loader** 0.18.1 or higher
-- **Fabric API** 0.141.4+1.21.11 (or compatible)
 
 ## 1. Install the mod
 
