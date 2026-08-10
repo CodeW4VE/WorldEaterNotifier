@@ -55,7 +55,8 @@ public class WorldEaterNotifierMod implements ModInitializer {
             BaseMachineDefinition def = new BaseMachineDefinition(saved.name,
                     saved.minX, saved.minY, saved.minZ,
                     saved.maxX, saved.maxY, saved.maxZ, dimKey);
-            BaseMachineInstance instance = new BaseMachineInstance(def, "Trencher", config.trencherSettings.pingSettings);
+            BaseMachineInstance instance = new BaseMachineInstance(def, "Trencher", config.trencherSettings.pingSettings,
+                    saved.detectionType == null ? "quarry-like" : saved.detectionType);
             tManager.loadInstance(instance);
         }
 

@@ -35,6 +35,7 @@ public class MonitorCheckHandler {
         int trencherMinBlocks = config.trencherSettings.minBlocksBroken;
         for (BaseMachineInstance instance : TrencherManager.getInstance().getAll()) {
             if (!instance.isActive() || !instance.getDefinition().dimension().equals(world.getRegistryKey())) continue;
+            if ("2-way".equals(instance.getDetectionType())) continue;
             int count = countBlocksInside(instance.getDefinition(), affectedBlocks);
             if (count >= trencherMinBlocks) {
                 instance.updateLastActivityTick(currentTick);
@@ -72,10 +73,17 @@ public class MonitorCheckHandler {
             checkStuck(instance, currentTick, worldEaterTimeout);
         }
 
-        // Trencher checks (block break timeout only)
+        // Trencher checks (block break timeout + TNT counting for 2-way trenchers)
         long trencherTimeout = config.trencherSettings.stopTimeoutSeconds * 20L;
+        int trencherMinTnt = config.trencherSettings.minTntCount;
         for (BaseMachineInstance instance : TrencherManager.getInstance().getAll()) {
             if (!instance.isActive() || !instance.getDefinition().dimension().equals(world.getRegistryKey())) continue;
+            if ("2-way".equals(instance.getDetectionType())) {
+                int tntCount = countTntInArea(world, instance.getDefinition());
+                if (tntCount >= trencherMinTnt) {
+                    instance.updateLastActivityTick(currentTick);
+                }
+            }
             checkStuck(instance, currentTick, trencherTimeout);
         }
 

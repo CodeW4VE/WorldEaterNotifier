@@ -37,6 +37,9 @@ public class TrencherCommand {
         return CommandSource.suggestMatching(names, builder);
     };
 
+    private static final SuggestionProvider<ServerCommandSource> TRENCHER_TYPES = (context, builder) ->
+            CommandSource.suggestMatching(new String[]{"quarry-like", "2-way"}, builder);
+
     private static final SuggestionProvider<ServerCommandSource> ONLINE_PLAYER_NAMES = (context, builder) -> {
         ServerCommandSource source = context.getSource();
         if (source.getServer() == null) return Suggestions.empty();
@@ -99,14 +102,15 @@ public class TrencherCommand {
                 .requires(PermissionManager::canUseCommands)
                 .then(literal("create")
                         .then(argument("name", StringArgumentType.word())
-                                .then(argument("x1", IntegerArgumentType.integer()).suggests(SUGGEST_X)
-                                        .then(argument("y1", IntegerArgumentType.integer()).suggests(SUGGEST_Y)
-                                                .then(argument("z1", IntegerArgumentType.integer()).suggests(SUGGEST_Z)
-                                                        .then(argument("x2", IntegerArgumentType.integer()).suggests(SUGGEST_X)
-                                                                .then(argument("y2", IntegerArgumentType.integer()).suggests(SUGGEST_Y)
-                                                                        .then(argument("z2", IntegerArgumentType.integer()).suggests(SUGGEST_Z)
-                                                                                .executes(TrencherCommand::executeCreate)
-                                                                        ))))))))
+                                .then(argument("type", StringArgumentType.word()).suggests(TRENCHER_TYPES)
+                                        .then(argument("x1", IntegerArgumentType.integer()).suggests(SUGGEST_X)
+                                                .then(argument("y1", IntegerArgumentType.integer()).suggests(SUGGEST_Y)
+                                                        .then(argument("z1", IntegerArgumentType.integer()).suggests(SUGGEST_Z)
+                                                                .then(argument("x2", IntegerArgumentType.integer()).suggests(SUGGEST_X)
+                                                                        .then(argument("y2", IntegerArgumentType.integer()).suggests(SUGGEST_Y)
+                                                                                .then(argument("z2", IntegerArgumentType.integer()).suggests(SUGGEST_Z)
+                                                                                        .executes(TrencherCommand::executeCreate)
+                                                                                )))))))))
                 .then(literal("start")
                         .then(argument("name", StringArgumentType.word()).suggests(TRENCHER_NAMES)
                                 .executes(TrencherCommand::executeStart)))
@@ -152,6 +156,9 @@ public class TrencherCommand {
                         .then(literal("setMinBlocksBroken")
                                 .then(argument("count", IntegerArgumentType.integer(0))
                                         .executes(TrencherCommand::executeSetMinBlocksBroken)))
+                        .then(literal("setMinTntCount")
+                                .then(argument("count", IntegerArgumentType.integer(1))
+                                        .executes(TrencherCommand::executeSetMinTntCount)))
                         .then(literal("showSubscriptionButton")
                                 .requires(s -> isBotMode())
                                 .then(argument("value", BoolArgumentType.bool())
@@ -202,6 +209,11 @@ public class TrencherCommand {
 
     private static int executeCreate(CommandContext<ServerCommandSource> ctx) {
         String name = StringArgumentType.getString(ctx, "name");
+        String type = StringArgumentType.getString(ctx, "type");
+        if (!"quarry-like".equals(type) && !"2-way".equals(type)) {
+            ctx.getSource().sendError(Text.literal("Invalid trencher type. Use 'quarry-like' or '2-way'."));
+            return 0;
+        }
         int x1 = IntegerArgumentType.getInteger(ctx, "x1");
         int y1 = IntegerArgumentType.getInteger(ctx, "y1");
         int z1 = IntegerArgumentType.getInteger(ctx, "z1");
@@ -216,9 +228,9 @@ public class TrencherCommand {
         int maxX = Math.max(x1, x2), maxY = Math.max(y1, y2), maxZ = Math.max(z1, z2);
 
         BaseMachineDefinition definition = new BaseMachineDefinition(name, minX, minY, minZ, maxX, maxY, maxZ, dimension);
-        boolean success = TrencherManager.getInstance().create(definition);
+        boolean success = TrencherManager.getInstance().create(definition, type);
         if (success) {
-            ctx.getSource().sendFeedback(() -> Text.literal("Trencher '" + name + "' created."), true);
+            ctx.getSource().sendFeedback(() -> Text.literal("Trencher '" + name + "' (" + type + ") created."), true);
         } else {
             ctx.getSource().sendError(Text.literal("A trencher with name '" + name + "' already exists."));
         }
@@ -300,6 +312,7 @@ public class TrencherCommand {
         ctx.getSource().sendFeedback(() -> Text.literal("Channel ID: " + (config.channelId.isBlank() ? "not set" : config.channelId)), false);
         ctx.getSource().sendFeedback(() -> Text.literal("Stop timeout: " + config.trencherSettings.stopTimeoutSeconds + " seconds"), false);
         ctx.getSource().sendFeedback(() -> Text.literal("Min blocks broken: " + config.trencherSettings.minBlocksBroken), false);
+        ctx.getSource().sendFeedback(() -> Text.literal("Min TNT count (2-way): " + config.trencherSettings.minTntCount), false);
         ctx.getSource().sendFeedback(() -> Text.literal("--------------------------------------"), false);
         return 1;
     }
@@ -420,6 +433,15 @@ public class TrencherCommand {
         config.trencherSettings.minBlocksBroken = count;
         config.save();
         ctx.getSource().sendFeedback(() -> Text.literal("Minimum blocks broken per check set to " + count + "."), true);
+        return 1;
+    }
+
+    private static int executeSetMinTntCount(CommandContext<ServerCommandSource> ctx) {
+        int count = IntegerArgumentType.getInteger(ctx, "count");
+        ModConfig config = TrencherManager.getInstance().getConfig();
+        config.trencherSettings.minTntCount = count;
+        config.save();
+        ctx.getSource().sendFeedback(() -> Text.literal("Minimum TNT count per check set to " + count + "."), true);
         return 1;
     }
 
