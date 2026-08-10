@@ -19,10 +19,10 @@ public class TrencherManager {
     public void setConfig(ModConfig config) { this.config = config; }
     public ModConfig getConfig() { return config; }
 
-    public boolean create(BaseMachineDefinition definition) {
+    public boolean create(BaseMachineDefinition definition, String detectionType) {
         String name = definition.name();
         if (instances.containsKey(name)) return false;
-        BaseMachineInstance instance = new BaseMachineInstance(definition, "Trencher", config.trencherSettings.pingSettings);
+        BaseMachineInstance instance = new BaseMachineInstance(definition, "Trencher", config.trencherSettings.pingSettings, detectionType);
         instances.put(name, instance);
 
         ModConfig.SavedMachine saved = new ModConfig.SavedMachine(
@@ -32,6 +32,7 @@ public class TrencherManager {
                 definition.dimension().getValue().toString(),
                 false
         );
+        saved.detectionType = detectionType;
         config.trenchers.add(saved);
         config.save();
         return true;
