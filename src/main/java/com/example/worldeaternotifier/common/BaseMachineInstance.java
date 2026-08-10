@@ -5,15 +5,21 @@ import com.example.worldeaternotifier.config.ModConfig.PingSettings;
 public class BaseMachineInstance {
     private final BaseMachineDefinition definition;
     private final String machineType;
+    private final String detectionType;
     private final PingSettings pingSettings;
     private boolean active;
     private long lastActivityTick = -1;
     private boolean stuckAlertSent = false;
 
     public BaseMachineInstance(BaseMachineDefinition definition, String machineType, PingSettings pingSettings) {
+        this(definition, machineType, pingSettings, "quarry-like");
+    }
+
+    public BaseMachineInstance(BaseMachineDefinition definition, String machineType, PingSettings pingSettings, String detectionType) {
         this.definition = definition;
         this.machineType = machineType;
         this.pingSettings = pingSettings;
+        this.detectionType = detectionType;
         this.active = false;
     }
 
@@ -46,4 +52,5 @@ public class BaseMachineInstance {
     public void markStuckAlertSent() { this.stuckAlertSent = true; }
     public PingSettings getPingSettings() { return pingSettings; }
     public String getMachineType() { return machineType; }
+    public String getDetectionType() { return detectionType; }
 }

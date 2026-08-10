@@ -44,6 +44,7 @@ public class ModConfig {
     public static class TrencherSettings {
         public int stopTimeoutSeconds = 180;
         public int minBlocksBroken = 3;
+        public int minTntCount = 3;
         public PingSettings pingSettings = new PingSettings();
         public MessageTemplates messages = new MessageTemplates();
     }
@@ -77,6 +78,7 @@ public class ModConfig {
         public int minX, minY, minZ;
         public int maxX, maxY, maxZ;
         public String dimension;
+        public String detectionType = "quarry-like";
         public boolean active;
 
         public SavedMachine(String name, int minX, int minY, int minZ,
@@ -113,8 +115,15 @@ public class ModConfig {
                 if (config.worldEaterSettings.minTntCount < 1) config.worldEaterSettings.minTntCount = 3;
                 if (config.trencherSettings.stopTimeoutSeconds <= 0) config.trencherSettings.stopTimeoutSeconds = 180;
                 if (config.trencherSettings.minBlocksBroken < 0) config.trencherSettings.minBlocksBroken = 20;
+                if (config.trencherSettings.minTntCount < 1) config.trencherSettings.minTntCount = 3;
                 if (config.bedrockBreakerSettings.stopTimeoutSeconds <= 0) config.bedrockBreakerSettings.stopTimeoutSeconds = 180;
                 if (config.bedrockBreakerSettings.minBlocksBroken < 0) config.bedrockBreakerSettings.minBlocksBroken = 1;
+
+                for (ModConfig.SavedMachine saved : config.trenchers) {
+                    if (saved.detectionType == null || (!saved.detectionType.equals("quarry-like") && !saved.detectionType.equals("2-way"))) {
+                        saved.detectionType = "quarry-like";
+                    }
+                }
 
                 return config;
             } catch (IOException e) {
