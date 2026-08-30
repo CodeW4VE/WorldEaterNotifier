@@ -27,6 +27,8 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.world.World;
 
+import java.net.URI;
+
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
@@ -121,29 +123,31 @@ public class BedrockBreakerCommand {
                 .then(literal("settings")
                         .then(literal("show").executes(BedrockBreakerCommand::executeSettingsShow))
                         .then(literal("setWebhookUrl")
-                                .requires(s -> isWebhookMode())
+                                .requires(s -> isWebhookMode() && PermissionManager.isOp(s))
                                 .then(argument("url", StringArgumentType.greedyString())
                                         .executes(BedrockBreakerCommand::executeSetWebhookUrl)))
                         .then(literal("setPingRoleId")
+                                .requires(PermissionManager::isOp)
                                 .then(argument("roleId", StringArgumentType.word())
                                         .executes(BedrockBreakerCommand::executeSetPingRoleId)))
                         .then(literal("setBotToken")
-                                .requires(s -> isBotMode())
+                                .requires(s -> isBotMode() && PermissionManager.isOp(s))
                                 .then(argument("token", StringArgumentType.greedyString())
                                         .executes(BedrockBreakerCommand::executeSetBotToken)))
                         .then(literal("setGuildId")
-                                .requires(s -> isBotMode())
+                                .requires(s -> isBotMode() && PermissionManager.isOp(s))
                                 .then(argument("id", StringArgumentType.word())
                                         .executes(BedrockBreakerCommand::executeSetGuildId)))
                         .then(literal("setChannelId")
-                                .requires(s -> isBotMode())
+                                .requires(s -> isBotMode() && PermissionManager.isOp(s))
                                 .then(argument("id", StringArgumentType.word())
                                         .executes(BedrockBreakerCommand::executeSetChannelId)))
                         .then(literal("setMemberDiscordRole")
-                                .requires(s -> isBotMode())
+                                .requires(s -> isBotMode() && PermissionManager.isOp(s))
                                 .then(argument("roleId", StringArgumentType.word())
                                         .executes(BedrockBreakerCommand::executeSetMemberDiscordRole)))
                         .then(literal("setNotificationMode")
+                                .requires(PermissionManager::isOp)
                                 .then(argument("mode", StringArgumentType.word()).suggests(MODE_SUGGESTIONS)
                                         .executes(BedrockBreakerCommand::executeSetNotificationMode)))
                         .then(literal("setStopTimeout")
@@ -293,7 +297,7 @@ public class BedrockBreakerCommand {
         ModConfig config = BedrockBreakerManager.getInstance().getConfig();
         ctx.getSource().sendFeedback(() -> Text.literal("---------- Bedrock Breaker Settings ----------"), false);
         ctx.getSource().sendFeedback(() -> Text.literal("Notification mode: " + config.notificationMode), false);
-        ctx.getSource().sendFeedback(() -> Text.literal("Webhook URL: " + (config.webhookUrl.isBlank() ? "not set" : config.webhookUrl)), false);
+        ctx.getSource().sendFeedback(() -> Text.literal("Webhook URL: " + maskToken(config.webhookUrl)), false);
         ctx.getSource().sendFeedback(() -> Text.literal("Ping Role ID: " + (config.pingRoleId.isBlank() || config.pingRoleId.equals("0") ? "none" : config.pingRoleId)), false);
         ctx.getSource().sendFeedback(() -> Text.literal("Bot token: " + maskToken(config.botToken)), false);
         ctx.getSource().sendFeedback(() -> Text.literal("Guild ID: " + (config.guildId.isBlank() ? "not set" : config.guildId)), false);
@@ -310,8 +314,26 @@ public class BedrockBreakerCommand {
         return token.substring(0, 4) + "****" + token.substring(token.length() - 4);
     }
 
+    private static boolean isValidWebhookUrl(String url) {
+        try {
+            URI uri = URI.create(url);
+            if (!"https".equalsIgnoreCase(uri.getScheme())) return false;
+            String host = uri.getHost();
+            if (host == null) return false;
+            host = host.toLowerCase();
+            return host.equals("discord.com") || host.endsWith(".discord.com")
+                    || host.equals("discordapp.com") || host.endsWith(".discordapp.com");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private static int executeSetWebhookUrl(CommandContext<ServerCommandSource> ctx) {
         String url = StringArgumentType.getString(ctx, "url");
+        if (!isValidWebhookUrl(url)) {
+            ctx.getSource().sendError(Text.literal("Invalid webhook URL. Must be an https://discord.com/api/webhooks/... URL."));
+            return 0;
+        }
         ModConfig config = BedrockBreakerManager.getInstance().getConfig();
         config.webhookUrl = url;
         config.save();
