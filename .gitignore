@@ -69,3 +69,6 @@ screenshots/
 Thumbs.db
 ehthumbs.db
 desktop.ini
+
+# Local-only working files
+PLAN.md
