@@ -5,6 +5,9 @@ import com.example.worldeaternotifier.config.ModConfig;
 import com.example.worldeaternotifier.config.ModConfig.MessageTemplates;
 import com.example.worldeaternotifier.config.ModConfig.PingSettings;
 import com.example.worldeaternotifier.worldeater.WorldEaterManager;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -16,6 +19,7 @@ public class DiscordNotifier {
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
+    private static final Gson GSON = new Gson();
 
     private static ModConfig config() {
         return WorldEaterManager.getInstance().getConfig();
@@ -80,7 +84,14 @@ public class DiscordNotifier {
         if (url == null || url.isBlank()) return;
         String fullContent = buildMentionIfAllowed(shouldMention) + content;
         try {
-            String json = "{\"content\":\"" + fullContent.replace("\\", "\\\\").replace("\"", "\\\"") + "\"}";
+            JsonObject payload = new JsonObject();
+            payload.addProperty("content", fullContent);
+            JsonObject allowedMentions = new JsonObject();
+            JsonArray parse = new JsonArray();
+            parse.add("roles");
+            allowedMentions.add("parse", parse);
+            payload.add("allowed_mentions", allowedMentions);
+            String json = GSON.toJson(payload);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")

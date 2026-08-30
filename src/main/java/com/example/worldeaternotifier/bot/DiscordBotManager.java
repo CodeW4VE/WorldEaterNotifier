@@ -13,6 +13,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -34,6 +35,7 @@ import net.minecraft.text.Text;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 
 public class DiscordBotManager {
@@ -102,9 +104,9 @@ public class DiscordBotManager {
 
         if (withButton) {
             Button toggle = Button.secondary("wen:toggle:" + machineType + ":" + machineName, "\uD83D\uDD14 Toggle Ping");
-            channel.sendMessage(message).setActionRow(toggle).queue();
+            channel.sendMessage(message).setAllowedMentions(EnumSet.of(Message.MentionType.ROLE)).setActionRow(toggle).queue();
         } else {
-            channel.sendMessage(message).queue();
+            channel.sendMessage(message).setAllowedMentions(EnumSet.of(Message.MentionType.ROLE)).queue();
         }
     }
 
@@ -269,6 +271,11 @@ public class DiscordBotManager {
         }
 
         private void handlePingValueButton(ButtonInteractionEvent event, String id) {
+            Member member = event.getMember();
+            if (member == null || !member.hasPermission(Permission.ADMINISTRATOR)) {
+                event.reply("❌ You need Administrator permission.").setEphemeral(true).queue();
+                return;
+            }
             String[] parts = id.split(":", 6);
             if (parts.length < 6) return;
             String type = parts[3];
@@ -345,6 +352,12 @@ public class DiscordBotManager {
         public void onStringSelectInteraction(StringSelectInteractionEvent event) {
             String id = event.getComponentId();
             if (!id.startsWith("wen:")) return;
+
+            Member member = event.getMember();
+            if (member == null || !member.hasPermission(Permission.ADMINISTRATOR)) {
+                event.reply("❌ You need Administrator permission.").setEphemeral(true).queue();
+                return;
+            }
 
             if (id.equals("wen:pings:type")) {
                 String type = event.getValues().get(0);
