@@ -19,6 +19,7 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.events.role.RoleDeleteEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -167,6 +168,29 @@ public class DiscordBotManager {
             registerSlashCommands();
         }
 
+        @Override
+        public void onRoleDelete(RoleDeleteEvent event) {
+            ModConfig cfg = config();
+            if (cfg == null) return;
+            String deletedId = event.getRole().getId();
+            String deletedName = event.getRole().getName();
+            boolean changed = false;
+
+            if (deletedId.equals(cfg.memberDiscordRole)) {
+                cfg.memberDiscordRole = "";
+                changed = true;
+                broadcastMinecraft("⚠ Discord role '" + deletedName + "' (member access) was deleted. "
+                        + "Member-only start/stop/list access has been cleared; only admins can use it via Discord until a new role is set.");
+            }
+            if (deletedId.equals(cfg.pingRoleId)) {
+                cfg.pingRoleId = "";
+                changed = true;
+                broadcastMinecraft("⚠ Discord role '" + deletedName + "' (ping role) was deleted. Ping role has been cleared.");
+            }
+
+            if (changed) cfg.save();
+        }
+
         private void registerSlashCommands() {
             ModConfig cfg = config();
             if (cfg == null || cfg.guildId == null || cfg.guildId.isBlank()) return;
@@ -184,8 +208,8 @@ public class DiscordBotManager {
                                             new SubcommandData("channel", "Set the channel for notifications")
                                                     .addOption(OptionType.CHANNEL, "channel", "The notification channel", true),
                                             new SubcommandData("pings", "Configure ping settings for a machine type"),
-                                            new SubcommandData("member-discord-role", "Set the role for start/stop/list access")
-                                                    .addOption(OptionType.ROLE, "role", "The Discord role", true)
+                                            new SubcommandData("member-discord-role", "Set (or omit to clear) the role for start/stop/list access")
+                                                    .addOption(OptionType.ROLE, "role", "The Discord role (omit to clear)", false)
                                     ),
                             Commands.slash("worldeater", "Manage world eaters")
                                     .addSubcommands(
@@ -400,6 +424,12 @@ public class DiscordBotManager {
             };
             if (type == null) return;
 
+            Member member = event.getMember();
+            if (member == null || !hasAccess(member)) {
+                event.replyChoiceStrings(List.of()).queue();
+                return;
+            }
+
             Collection<String> names = switch (type) {
                 case "WorldEater" -> WorldEaterManager.getInstance().getAll().stream().map(i -> i.getDefinition().name()).toList();
                 case "Trencher" -> TrencherManager.getInstance().getAll().stream().map(i -> i.getDefinition().name()).toList();
@@ -498,10 +528,17 @@ public class DiscordBotManager {
                     event.reply("Notification channel set to " + channel.getAsMention() + ".").setEphemeral(true).queue();
                 }
                 case "member-discord-role" -> {
-                    Role role = event.getOption("role").getAsRole();
-                    cfg.memberDiscordRole = role.getId();
-                    cfg.save();
-                    event.reply("Member role set to " + role.getAsMention() + ".").setEphemeral(true).queue();
+                    var roleOption = event.getOption("role");
+                    if (roleOption == null) {
+                        cfg.memberDiscordRole = "";
+                        cfg.save();
+                        event.reply("Member role cleared. Only admins can use start/stop/list now.").setEphemeral(true).queue();
+                    } else {
+                        Role role = roleOption.getAsRole();
+                        cfg.memberDiscordRole = role.getId();
+                        cfg.save();
+                        event.reply("Member role set to " + role.getAsMention() + ".").setEphemeral(true).queue();
+                    }
                 }
                 case "pings" -> {
                     var select = StringSelectMenu.create("wen:pings:type")

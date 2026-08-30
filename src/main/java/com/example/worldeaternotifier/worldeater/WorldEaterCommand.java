@@ -155,7 +155,7 @@ public class WorldEaterCommand {
                                 .then(argument("count", IntegerArgumentType.integer(1))
                                         .executes(WorldEaterCommand::executeSetMinTntCount)))
                         .then(literal("showSubscriptionButton")
-                                .requires(s -> isBotMode())
+                                .requires(s -> isBotMode() && PermissionManager.isOp(s))
                                 .then(argument("value", BoolArgumentType.bool())
                                         .executes(ctx -> {
                                             boolean val = BoolArgumentType.getBool(ctx, "value");
@@ -379,10 +379,20 @@ public class WorldEaterCommand {
     private static int executeSetMemberDiscordRole(CommandContext<ServerCommandSource> ctx) {
         String roleId = StringArgumentType.getString(ctx, "roleId");
         ModConfig config = WorldEaterManager.getInstance().getConfig();
+        if (isClearKeyword(roleId)) {
+            config.memberDiscordRole = "";
+            config.save();
+            ctx.getSource().sendFeedback(() -> Text.literal("Member Discord role cleared. Only op players can use start/stop/list via Discord now."), true);
+            return 1;
+        }
         config.memberDiscordRole = roleId;
         config.save();
         ctx.getSource().sendFeedback(() -> Text.literal("Member Discord role ID updated."), true);
         return 1;
+    }
+
+    private static boolean isClearKeyword(String value) {
+        return value.equalsIgnoreCase("none") || value.equalsIgnoreCase("clear") || value.equals("0");
     }
 
     private static int executeSetNotificationMode(CommandContext<ServerCommandSource> ctx) {
