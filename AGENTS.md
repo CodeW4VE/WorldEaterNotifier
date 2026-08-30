@@ -1,159 +1,208 @@
 # WorldEaterNotifier
 
-Fabric mod (Minecraft 1.21.11, server-side only) that monitors world eaters, trenchers, and bedrock breakers, sending Discord webhook notifications with per-event ping control when they stop or get obstructed.
+Fabric mod (Minecraft 1.21, **server-side only**) that monitors world eaters,
+trenchers, and bedrock breakers and sends Discord notifications — via webhook or a JDA
+bot — with per-event ping control when a machine starts, gets stuck/obstructed, resumes,
+is stopped, or the server shuts down.
+
+> **Working with Claude Code?** See [CLAUDE.md](CLAUDE.md). It points to this file for
+> context and to `PLAN.md` (local-only, gitignored) for the current task tracker.
 
 ## Tech Stack
 
 - **Language:** Java 21
-- **Framework:** Fabric Loader 0.18.1, Fabric API 0.141.4+1.21.11
-- **Build:** Gradle (Fabric Loom 1.14.10)
-- **Mappings:** Yarn 1.21.11+build.4
-- **Dependencies:** None beyond Fabric API + stdlib (java.net.http for Discord webhooks, Gson for config)
-- **Mixin:** ExplosionMixin targeting `ExplosionImpl.destroyBlocks`
+- **Loader/API:** Fabric Loader 0.19.3, Fabric API 0.100.8+1.21
+- **Build:** Gradle + Fabric Loom 1.7-SNAPSHOT
+- **Mappings:** Yarn 1.21+build.1
+- **Mixin:** `ExplosionMixin` targets `ExplosionImpl.destroyBlocks`
+- **Dependencies:**
+  - Fabric API + Java stdlib (`java.net.http.HttpClient` for webhooks, **Gson** for
+    config and webhook JSON payloads).
+  - **JDA 5.2.1** (bot mode) — **shaded** into the output jar via the `shade`
+    configuration and `remapJar` (see `build.gradle`), with `opus-java` excluded. No
+    separate mod install is required for bot mode.
+- **Java package:** `com.example.worldeaternotifier` (note: Maven group is
+  `com.worldeaternotifier` — they intentionally differ).
+
+## Build & Run
+
+```bash
+./gradlew clean build     # -> build/libs/worldeaternotifier-<version>.jar (JDA shaded in)
+```
+
+There are **no automated tests**. Verify behavior by loading the jar on a dev server and
+exercising commands in-game and in Discord (see "Verifying changes" below).
 
 ## Project Structure
 
 ```
 src/main/java/com/example/worldeaternotifier/
-├── WorldEaterNotifierMod.java          # Mod entrypoint (ModInitializer)
+├── WorldEaterNotifierMod.java          # ModInitializer entrypoint; loads config, wires managers, registers events/commands
 ├── common/
-│   ├── BaseMachineDefinition.java      # Immutable record: name, AABB coords, dimension
-│   ├── BaseMachineInstance.java        # Runtime state: active, lastActivityTick, stuckAlertSent
-│   ├── DiscordNotifier.java            # HTTP client for Discord webhooks (sendAsync)
-│   ├── ExplosionBlockCallback.java     # Fabric event firing block-destroyed list to listeners
-│   └── PermissionManager.java          # Permission/whitelist gate for commands
+│   ├── BaseMachineDefinition.java      # Immutable record: name, inclusive AABB coords, dimension
+│   ├── BaseMachineInstance.java        # Runtime state: active, lastActivityTick, stuckAlertSent, detectionType
+│   ├── DiscordNotifier.java            # Outbound notifications (webhook via HttpClient, or delegate to bot)
+│   ├── ExplosionBlockCallback.java     # Fabric event carrying the destroyed-block list to listeners
+│   └── PermissionManager.java          # Op / whitelist authorization gate for in-game commands
 ├── config/
-│   └── ModConfig.java                  # Gson-based JSON config (load/save to config dir)
-├── worldeater/
-│   ├── WorldEaterManager.java          # Singleton registry + CRUD for WorldEater instances
-│   └── WorldEaterCommand.java          # Brigadier command tree for /worldeater
-├── trencher/
-│   ├── TrencherManager.java            # Singleton registry + CRUD for Trencher instances
-│   └── TrencherCommand.java            # Brigadier command tree for /trencher
-├── bedrockbreaker/
-│   ├── BedrockBreakerManager.java      # Singleton registry + CRUD for BedrockBreaker instances
-│   └── BedrockBreakerCommand.java      # Brigadier command tree for /bedrockbreaker
+│   └── ModConfig.java                  # Gson JSON config (load/save under config/worldeaternotifier.json)
+├── worldeater/                         # WorldEaterManager + WorldEaterCommand
+├── trencher/                           # TrencherManager + TrencherCommand
+├── bedrockbreaker/                     # BedrockBreakerManager + BedrockBreakerCommand
 ├── bot/
-│   └── DiscordBotManager.java          # JDA lifecycle, pending buffer, button interactions
+│   └── DiscordBotManager.java          # JDA lifecycle, pending buffer, slash commands, buttons/selects
 ├── monitor/
-│   └── MonitorCheckHandler.java        # Per-tick + explosion callback logic
+│   └── MonitorCheckHandler.java        # Per-tick + explosion-callback detection logic
 └── mixin/
-    └── ExplosionMixin.java             # Mixin: captures pre/post state of explosion blocks
+    └── ExplosionMixin.java             # Captures pre/post block state around explosions
 ```
 
 ## Architecture
 
 ### Three machine types
 
-Each machine type follows the same pattern: a `*Manager` (singleton, in-memory `ConcurrentHashMap<String, BaseMachineInstance>`) and a `*Command` (Brigadier command tree). They share the same `BaseMachineDefinition` and `BaseMachineInstance` classes.
+Each type follows the same shape: a singleton `*Manager`
+(in-memory `ConcurrentHashMap<String, BaseMachineInstance>` + a `ModConfig` reference) and
+a static `*Command` (Brigadier tree). All three share `BaseMachineDefinition` and
+`BaseMachineInstance`.
 
 | Type | Detection | Config settings key |
-|------|-----------|-------------------|
+|------|-----------|---------------------|
 | WorldEater | Lit TNT entity count in AABB | `worldEaterSettings` |
-| Trencher | Non-TNT blocks destroyed by explosion in AABB | `trencherSettings` |
-| BedrockBreaker | Same explosion-block detection as Trencher | `bedrockBreakerSettings` |
+| Trencher | Blocks destroyed by explosion in AABB (`quarry-like`), or TNT count (`2-way`) | `trencherSettings` |
+| BedrockBreaker | Explosion-block detection (same as quarry-like trencher) | `bedrockBreakerSettings` |
 
 ### Detection mechanism
 
-1. **TNT-based (WorldEater):** Every second (`CHECK_INTERVAL_TICKS = 20`), `MonitorCheckHandler.onWorldTick` scans each active WorldEater's AABB via `world.getEntitiesByType(EntityType.TNT, box, ...)`. If count >= `minTntCount`, `instance.updateLastActivityTick(currentTick)` is called.
-
-2. **Block-break-based (Trencher, BedrockBreaker):** `ExplosionMixin` hooks `ExplosionImpl.destroyBlocks` — before destruction it captures block states, after it filters out air/TNT and fires `ExplosionBlockCallback.EVENT` with the list of actually-destroyed positions. `MonitorCheckHandler.onExplosionBlocksDestroyed` counts how many fall inside each active machine's AABB. If count >= `minBlocksBroken`, updates activity tick.
-
-3. **Stuck detection:** `checkStuck()` runs every tick for all active machines. If `currentTick - lastActivityTick > stopTimeout * 20` and no stuck alert has been sent yet, it sends a Discord "stuck" notification and marks the alert sent. If activity resumes (`updateLastActivityTick` clears the flag), a "resumed" notification is sent.
+1. **TNT-based** (WorldEater, and `2-way` Trencher): every second
+   (`CHECK_INTERVAL_TICKS = 20`), `MonitorCheckHandler.onWorldTick` scans each active
+   machine's AABB with `world.getEntitiesByType(EntityType.TNT, box, ...)`. If the count
+   ≥ `minTntCount`, `instance.updateLastActivityTick(currentTick)`.
+2. **Block-break-based** (`quarry-like` Trencher, BedrockBreaker): `ExplosionMixin` hooks
+   `ExplosionImpl.destroyBlocks` — captures block states at HEAD, and at TAIL filters to
+   blocks that were non-air/non-TNT and are now air, firing `ExplosionBlockCallback.EVENT`
+   with the destroyed positions. `MonitorCheckHandler.onExplosionBlocksDestroyed` counts
+   those inside each active machine's AABB; if ≥ `minBlocksBroken`, updates activity tick.
+3. **Stuck detection:** `checkStuck()` runs each tick per active machine. If
+   `currentTick - lastActivityTick > stopTimeout * 20` and no stuck alert was sent yet, it
+   sends a "stuck" notification and marks the flag. When activity resumes,
+   `updateLastActivityTick` clears the flag and sends a "resumed" notification.
 
 ### State persistence
 
-- Config stored at `config/worldeaternotifier.json` (Gson).
-- Machine definitions + active state persisted in the same JSON file under `worldEaters`, `trenchers`, `bedrockBreakers` arrays.
-- On server start (`WorldEaterNotifierMod.onInitialize`), all machines are loaded but set inactive. They must be manually `/start`ed.
-- On server shutdown (`SERVER_STOPPING`), all active machines are stopped, shutdown notifications sent, and config saved with `active: false`.
-
-### Discord notifications
-
-Sent asynchronously via `java.net.http.HttpClient.sendAsync` (webhook mode) or JDA (bot mode). Methods: `sendStart`, `sendStuck`, `sendResumed`, `sendManuallyStopped`, `sendServerShutdown`. Ping built from `buildMentionIfAllowed` using `pingRoleId` and per-event toggles.
+- Config at `config/worldeaternotifier.json` (Gson, pretty-printed).
+- Machine definitions + last active state persist under `worldEaters`, `trenchers`,
+  `bedrockBreakers` arrays. `ModConfig.load()` backfills nulls and clamps invalid numeric
+  settings to defaults.
+- On server start (`onInitialize`), machines load **inactive**; they must be `/start`ed.
+- On `SERVER_STOPPING`, active machines get a shutdown notification, are stopped, config is
+  saved with `active: false`, and the bot is shut down.
 
 ### Notification modes (`config.notificationMode`)
 
-| Mode | Delivery | Settings shown |
-|------|----------|---------------|
-| `webhook` (default) | HTTP POST to webhook URL | `setWebhookUrl`, `setPingRoleId` |
-| `bot` | JDA bot with "Toggle Ping" button and slash commands | `setBotToken`, `setGuildId`, `setChannelId`, `setPingRoleId` |
+| Mode | Delivery | Configured with |
+|------|----------|-----------------|
+| `webhook` (default) | HTTPS POST to a Discord webhook URL | `setWebhookUrl`, `setPingRoleId` |
+| `bot` | JDA bot: "Toggle Ping" button + slash commands | `setBotToken`, `setGuildId`, `setChannelId`, `setPingRoleId` |
 
-**Dynamic command visibility:** Brigadier `.requires()` predicates on settings subcommands check `config.notificationMode` at runtime — only the relevant settings for the current mode are tab-completable.
-
-**Start guard:** `executeStart()` in all three commands calls `isDeliveryConfigured()` — refuses to start if the current mode's requirements aren't met (webhook → `webhookUrl` non-blank; bot → `botToken`+`guildId`+`channelId` all non-blank).
+- `DiscordNotifier` methods: `sendStart`, `sendStuck`, `sendResumed`,
+  `sendManuallyStopped`, `sendServerShutdown`. Ping prefix built by
+  `buildMentionIfAllowed` from `pingRoleId` + per-event toggles.
+- **Start guard:** `executeStart()` calls `isDeliveryConfigured()` and refuses to start if
+  the current mode's requirements are unmet (webhook → non-blank `webhookUrl`; bot →
+  `botToken`+`guildId`+`channelId`).
+- **Dynamic command visibility:** settings subcommands use Brigadier `.requires()`
+  predicates on `notificationMode` so only the relevant ones are tab-completable per mode.
 
 ### Bot mode (`DiscordBotManager`)
 
-Singleton in `bot/` package. Uses JDA 5.2.1 with `GUILD_MEMBERS` intent.
+Singleton using JDA 5.2.1 with the `GUILD_MEMBERS` intent.
 
-- **Startup:** `JDA.createDefault(token).build()` returns immediately (non-blocking). Notifications queue internally until WebSocket connects.
-- **Shutdown:** `jda.shutdown()` on server stop or mode switch.
-- **Pending buffer:** If `jda.getStatus() != CONNECTED` when a notification fires, the message is queued (max 50). Flushed on `ReadyEvent`. Cleared on `stop()`.
-- **Buttons:** Single "Toggle Ping" button (`wen:toggle:<type>:<name>`) adds or removes `pingRoleId` based on current state. Reply is ephemeral. Only shown on start messages (controlled by `showSubscriptionButton` config).
-- **Slash commands:** `/config subscription-button|ping-role|channel|pings` (admin-only), `/worldeater start|stop|list`, `/trencher start|stop|list`, `/bedrockbreaker start|stop|list` (gated by admin or `memberDiscordRole`). The `name` option on `start`/`stop` has autocomplete suggesting existing machines.
-- **`/config pings` interactive flow:** Select machine type → embed with current settings → select setting to change → true/false buttons. After setting, returns to the setting picker so you can keep toggling.
-- **Dynamic lifecycle:** `setBotToken` triggers `restart(token)`. `setNotificationMode` toggles start/stop. Bot reads `guildId`/`channelId` from config at send time — no restart needed.
+- **Startup:** `JDABuilder.createDefault(token).build()` returns immediately; notifications
+  queue (max 50) until the WebSocket is `CONNECTED`, flushed on `ReadyEvent`.
+- **Shutdown/restart:** `jda.shutdown()` on server stop or mode switch; `setBotToken`
+  triggers `restart(token)`. Guild/channel are read from config at send time — no restart
+  needed for those.
+- **Buttons:** a single "Toggle Ping" button (`wen:toggle:<type>:<name>`) lets a Discord
+  user self-add/remove `pingRoleId`; reply is ephemeral. Shown on start messages only when
+  `showSubscriptionButton` is true.
+- **Slash commands:** `/config subscription-button|ping-role|channel|pings|member-discord-role`
+  (Administrator only), and `/worldeater|/trencher|/bedrockbreaker start|stop|list` (gated
+  by Administrator OR `memberDiscordRole`). `start`/`stop` autocomplete existing names.
+- **`/config pings` flow:** select machine type → embed of current settings → select a
+  setting → True/False buttons, looping back to the picker.
 
-### Config fields
+### Configurable messages & pings
 
-```java
-public String botToken = "";              // Discord bot token
-public String guildId = "";               // Guild ID for role management
-public String channelId = "";             // Channel for bot messages
-public String notificationMode = "webhook"; // "webhook" | "bot"
-public boolean showSubscriptionButton = true; // show toggle button on start messages
-public String memberDiscordRole = "";     // Discord role for start/stop/list access
+- Each machine type has a `messages` block (`MessageTemplates`: `start`, `stuck`,
+  `resumed`, `manualStop`, `shutdown`) with `{type}`/`{name}` placeholders. Resolved by
+  `DiscordNotifier.templatesFor(machineType)`.
+- Each type has `PingSettings` (`enabled`, `onStart`, `onStop`, `onStuck`, `onResumed`,
+  `onShutdown`), edited via in-game `discordPings` commands or `/config pings`. All persist
+  to JSON.
+
+## Authorization & security invariants
+
+Keep these intact — they were established by a security hardening pass; regressing them
+re-introduces known vulnerabilities.
+
+- **In-game command gate** (`PermissionManager`): op = permission level
+  GAMEMASTERS/2+; non-op players must be in the shared `whitelist`.
+  - `create` / `start` / `stop` / `list` / `delete` / `settings show` / `discordPings`:
+    **op OR whitelisted**.
+  - **Secret- or delivery-mutating settings are op-only:** `setWebhookUrl`, `setBotToken`,
+    `setGuildId`, `setChannelId`, `setNotificationMode`, `setMemberDiscordRole`,
+    `setPingRoleId`. Enforced via `.requires(... && PermissionManager.isOp(s))` (composed
+    with the mode predicate where present).
+  - `whitelist add` / `remove`: **op-only**.
+- **Secret masking:** `settings show` masks both the bot token and the webhook URL
+  (`maskToken`). Do not print either in cleartext.
+- **Webhook URL validation (anti-SSRF):** `setWebhookUrl` accepts only `https` URLs whose
+  host is `discord.com`/`discordapp.com` (or a subdomain). Reject anything else.
+- **Mention safety:** outbound messages restrict mentions to roles only — webhook payloads
+  include `allowed_mentions: {parse: ["roles"]}` (built with Gson, not string concat), and
+  JDA sends use `setAllowedMentions(EnumSet.of(Message.MentionType.ROLE))`. This prevents
+  `@everyone`/`@here`/user-mention abuse from templates or names.
+- **Discord interaction handlers** that mutate settings (`/config pings` buttons/selects)
+  re-check `Permission.ADMINISTRATOR`; don't rely on the entry point being ephemeral.
+
+Known lower-priority items still open are tracked in `PLAN.md` (e.g. `syncCommandTree`
+advertising the full tree to clients, plaintext secrets at rest, cross-thread `ModConfig`
+mutation).
+
+## In-game commands
+
+`/worldeater`, `/trencher`, `/bedrockbreaker` share this structure (trencher adds a
+`<type>` arg on `create`; TNT/blocks settings differ per type):
+
+```
+<command> create <name> [<type>] <x1> <y1> <z1> <x2> <y2> <z2>
+<command> start|stop|delete <name>
+<command> list
+<command> settings show
+<command> settings setWebhookUrl <url>            # webhook mode, op-only
+<command> settings setBotToken|setGuildId|setChannelId|setMemberDiscordRole <v>   # bot mode, op-only
+<command> settings setNotificationMode <webhook|bot>   # op-only
+<command> settings setPingRoleId <roleId>         # op-only
+<command> settings setStopTimeout <seconds>
+<command> settings setMinTntCount <count>         # /worldeater (+ /trencher for 2-way)
+<command> settings setMinBlocksBroken <count>     # /trencher, /bedrockbreaker
+<command> settings showSubscriptionButton <bool>  # bot mode
+<command> settings discordPings show|enable|onStart|onStop|onStuck|onResumed|onShutdown
+<command> settings whitelist list|add|remove      # add/remove op-only
 ```
 
-### Configurable messages
-
-Each machine type has its own `messages` block in the JSON config (under `worldEaterSettings`, `trencherSettings`, `bedrockBreakerSettings`). The `MessageTemplates` class holds 5 templates (`start`, `stuck`, `resumed`, `manualStop`, `shutdown`) using `{type}`/`{name}` placeholders. `DiscordNotifier.templatesFor(machineType)` resolves which set to use.
-
-### PingSettings persist to JSON
-
-`PingSettings` (booleans: `enabled`, `onStart`, `onStop`, `onStuck`, `onResumed`, `onShutdown`) are serialized to JSON under each machine type's settings block. Modified via `discordPings` in-game commands or `/config pings` Discord slash command. Changes persist across restarts.
-
-### Permissions
-
-- Op players (permission level GAMEMASTERS/2+) can always use commands.
-- Non-op players must be in the shared `whitelist` in config.
-- Whitelist management requires op.
+The whitelist is shared across all three commands.
 
 ## Key Conventions
 
-- **Managers are singletons** with `getInstance()`, hold a `ModConfig` reference.
-- **Commands are static** with `register(CommandDispatcher, CommandRegistryAccess, RegistrationEnvironment)`.
+- **Managers are singletons** (`getInstance()`), each holding a `ModConfig` reference.
+- **Commands are static**, registered via `register(dispatcher, registryAccess, environment)`.
 - **Machine types are strings:** `"WorldEater"`, `"Trencher"`, `"BedrockBreaker"`.
-- **New machine type = new package** with `*Manager` + `*Command`, add config section in `ModConfig`, wire in `WorldEaterNotifierMod`, add detection logic in `MonitorCheckHandler`.
-- **No dependency injection.** Everything is manual singleton wiring.
-- **Coordinates are inclusive** AABB using `Math.min/max` of two corner positions.
+- **Adding a machine type** = new package (`*Manager` + `*Command`) + a settings section in
+  `ModConfig` + wiring in `WorldEaterNotifierMod` + detection logic in `MonitorCheckHandler`.
+- **No dependency injection** — manual singleton wiring throughout.
+- **Coordinates** form an inclusive AABB using `Math.min/max` of the two corners.
 - **Server-side only** (`"environment": "server"` in `fabric.mod.json`).
-
-## Build & Run
-
-```bash
-./gradlew clean build          # produces build/libs/worldeaternotifier-*.jar
-```
-
-## Commands
-
-Each machine type has `/worldeater`, `/trencher`, `/bedrockbreaker` with identical structure:
-
-```
-<command> create <name> <x1> <y1> <z1> <x2> <y2> <z2>
-<command> start <name>
-<command> stop <name>
-<command> list
-<command> delete <name>
-<command> settings show
-<command> settings setWebhookUrl <url>
-<command> settings setPingRoleId <roleId>
-<command> settings setStopTimeout <seconds>
-<command> settings setMinTntCount <count>          # /worldeater only
-<command> settings setMinBlocksBroken <count>      # /trencher and /bedrockbreaker
-<command> settings discordPings show/enable/onStart/onStop/onStuck/onResumed/onShutdown
-<command> settings whitelist list/add/remove
-```
-
-Whitelist is shared across all three commands.
+- When architecture or conventions change, update this file; when task status changes,
+  update `PLAN.md`.
