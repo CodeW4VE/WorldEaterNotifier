@@ -128,9 +128,18 @@ Singleton using JDA 5.2.1 with the `GUILD_MEMBERS` intent.
   `showSubscriptionButton` is true.
 - **Slash commands:** `/config subscription-button|ping-role|channel|pings|member-discord-role`
   (Administrator only), and `/worldeater|/trencher|/bedrockbreaker start|stop|list` (gated
-  by Administrator OR `memberDiscordRole`). `start`/`stop` autocomplete existing names.
+  by Administrator OR `memberDiscordRole`). `start`/`stop` autocomplete existing names, and
+  the autocomplete handler itself is access-gated (see invariants below).
 - **`/config pings` flow:** select machine type → embed of current settings → select a
   setting → True/False buttons, looping back to the picker.
+- **Clearing `memberDiscordRole`:** `/config member-discord-role` takes an *optional* role
+  option — omit it to clear the field (falls back to admin-only access). In-game,
+  `settings setMemberDiscordRole none|clear|0` clears it the same way.
+- **Role-deletion resilience:** a `RoleDeleteEvent` listener watches for the configured
+  `memberDiscordRole` or `pingRoleId` being deleted in Discord. If either is deleted, the
+  corresponding config field is cleared and saved automatically, and an in-game broadcast
+  (`⚠ ...`) explains what happened — this avoids silent, permanent lockouts from a stale
+  role reference.
 
 ### Configurable messages & pings
 
@@ -148,12 +157,17 @@ re-introduces known vulnerabilities.
 
 - **In-game command gate** (`PermissionManager`): op = permission level
   GAMEMASTERS/2+; non-op players must be in the shared `whitelist`.
-  - `create` / `start` / `stop` / `list` / `delete` / `settings show` / `discordPings`:
-    **op OR whitelisted**.
-  - **Secret- or delivery-mutating settings are op-only:** `setWebhookUrl`, `setBotToken`,
-    `setGuildId`, `setChannelId`, `setNotificationMode`, `setMemberDiscordRole`,
-    `setPingRoleId`. Enforced via `.requires(... && PermissionManager.isOp(s))` (composed
-    with the mode predicate where present).
+  - `create` / `start` / `stop` / `list` / `delete` / `settings show` / `discordPings` /
+    `setStopTimeout` / `setMinTntCount` / `setMinBlocksBroken`: **op OR whitelisted** —
+    these only tune detection behavior for a machine the whitelisted player is already
+    allowed to operate; none of them touch secrets or delivery config.
+  - **Secret-, delivery-, or bot-behavior-mutating settings are op-only:** `setWebhookUrl`,
+    `setBotToken`, `setGuildId`, `setChannelId`, `setNotificationMode`,
+    `setMemberDiscordRole`, `setPingRoleId`, `showSubscriptionButton`. Enforced via
+    `.requires(... && PermissionManager.isOp(s))` (composed with the mode predicate where
+    present). `showSubscriptionButton` is included here even though it isn't a secret,
+    because it's a *global* Discord-message behavior toggle (affects every notification,
+    for every user), not a per-machine tuning knob — same tier as `setNotificationMode`.
   - `whitelist add` / `remove`: **op-only**.
 - **Secret masking:** `settings show` masks both the bot token and the webhook URL
   (`maskToken`). Do not print either in cleartext.
@@ -165,10 +179,22 @@ re-introduces known vulnerabilities.
   `@everyone`/`@here`/user-mention abuse from templates or names.
 - **Discord interaction handlers** that mutate settings (`/config pings` buttons/selects)
   re-check `Permission.ADMINISTRATOR`; don't rely on the entry point being ephemeral.
+- **Discord autocomplete is access-gated:** `onCommandAutoCompleteInteraction` calls
+  `hasAccess(member)` (admin OR `memberDiscordRole`) before returning machine-name
+  suggestions for `start`/`stop`, and replies with an empty list otherwise — a user who
+  can't run the command can't enumerate machine names through autocomplete either.
+- **`memberDiscordRole`/`pingRoleId` don't go stale silently:** deleting either role in
+  Discord auto-clears the corresponding config field (via a `RoleDeleteEvent` listener) and
+  broadcasts an in-game warning, instead of leaving a dangling ID that silently denies
+  everyone. Both fields also support an explicit clear path (see "Bot mode" above).
 
-Known lower-priority items still open are tracked in `PLAN.md` (e.g. `syncCommandTree`
-advertising the full tree to clients, plaintext secrets at rest, cross-thread `ModConfig`
-mutation).
+A full in-game + Discord permission audit (root gate, per-subcommand gating, autocomplete,
+`memberDiscordRole` end-to-end) found no open items — see `PLAN.md` for the detailed
+matrices. Separately, some lower-priority hardening from the original security pass is
+still open: `syncCommandTree` advertises the full command tree to every client
+(info-disclosure only — server-side `.requires()` still blocks execution), secrets are
+stored in plaintext at rest, and `ModConfig` mutation/`save()` isn't locked across the
+server tick thread and JDA callback threads.
 
 ## In-game commands
 
@@ -181,13 +207,14 @@ mutation).
 <command> list
 <command> settings show
 <command> settings setWebhookUrl <url>            # webhook mode, op-only
-<command> settings setBotToken|setGuildId|setChannelId|setMemberDiscordRole <v>   # bot mode, op-only
+<command> settings setBotToken|setGuildId|setChannelId <v>   # bot mode, op-only
+<command> settings setMemberDiscordRole <roleId|none|clear|0>   # bot mode, op-only; keyword clears it
 <command> settings setNotificationMode <webhook|bot>   # op-only
 <command> settings setPingRoleId <roleId>         # op-only
 <command> settings setStopTimeout <seconds>
 <command> settings setMinTntCount <count>         # /worldeater (+ /trencher for 2-way)
 <command> settings setMinBlocksBroken <count>     # /trencher, /bedrockbreaker
-<command> settings showSubscriptionButton <bool>  # bot mode
+<command> settings showSubscriptionButton <bool>  # bot mode, op-only
 <command> settings discordPings show|enable|onStart|onStop|onStuck|onResumed|onShutdown
 <command> settings whitelist list|add|remove      # add/remove op-only
 ```
