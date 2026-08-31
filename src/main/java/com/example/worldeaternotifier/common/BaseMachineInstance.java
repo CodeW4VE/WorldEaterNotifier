@@ -11,10 +11,6 @@ public class BaseMachineInstance {
     private long lastActivityTick = -1;
     private boolean stuckAlertSent = false;
 
-    public BaseMachineInstance(BaseMachineDefinition definition, String machineType, PingSettings pingSettings) {
-        this(definition, machineType, pingSettings, "quarry-like");
-    }
-
     public BaseMachineInstance(BaseMachineDefinition definition, String machineType, PingSettings pingSettings, String detectionType) {
         this.definition = definition;
         this.machineType = machineType;

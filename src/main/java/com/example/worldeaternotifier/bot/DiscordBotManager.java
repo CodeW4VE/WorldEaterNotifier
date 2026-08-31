@@ -1,12 +1,11 @@
 package com.example.worldeaternotifier.bot;
 
 import com.example.worldeaternotifier.WorldEaterNotifierMod;
-import com.example.worldeaternotifier.bedrockbreaker.BedrockBreakerManager;
 import com.example.worldeaternotifier.common.BaseMachineInstance;
 import com.example.worldeaternotifier.common.DiscordNotifier;
+import com.example.worldeaternotifier.common.MachineManager;
+import com.example.worldeaternotifier.common.MachineRegistry;
 import com.example.worldeaternotifier.config.ModConfig;
-import com.example.worldeaternotifier.trencher.TrencherManager;
-import com.example.worldeaternotifier.worldeater.WorldEaterManager;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -127,23 +126,21 @@ public class DiscordBotManager {
     }
 
     private static ModConfig config() {
-        return WorldEaterManager.getInstance().getConfig();
+        return MachineRegistry.getConfig();
     }
 
     private static BaseMachineInstance resolveInstance(String type, String name) {
-        return switch (type) {
-            case "WorldEater" -> WorldEaterManager.getInstance().get(name);
-            case "Trencher" -> TrencherManager.getInstance().get(name);
-            case "BedrockBreaker" -> BedrockBreakerManager.getInstance().get(name);
-            default -> null;
-        };
+        MachineManager manager = MachineRegistry.get(type);
+        return manager == null ? null : manager.get(name);
     }
 
     private static Collection<BaseMachineInstance> allMachines(String typeFilter) {
+        if (typeFilter != null) {
+            MachineManager manager = MachineRegistry.get(typeFilter);
+            return manager == null ? List.of() : manager.getAll();
+        }
         List<BaseMachineInstance> all = new ArrayList<>();
-        if (typeFilter == null || "WorldEater".equals(typeFilter)) all.addAll(WorldEaterManager.getInstance().getAll());
-        if (typeFilter == null || "Trencher".equals(typeFilter)) all.addAll(TrencherManager.getInstance().getAll());
-        if (typeFilter == null || "BedrockBreaker".equals(typeFilter)) all.addAll(BedrockBreakerManager.getInstance().getAll());
+        for (MachineManager manager : MachineRegistry.all()) all.addAll(manager.getAll());
         return all;
     }
 
@@ -309,13 +306,9 @@ public class DiscordBotManager {
             ModConfig cfg = config();
             if (cfg == null) { event.reply("Config not loaded.").setEphemeral(true).queue(); return; }
 
-            ModConfig.PingSettings ps = switch (type) {
-                case "WorldEater" -> cfg.worldEaterSettings.pingSettings;
-                case "Trencher" -> cfg.trencherSettings.pingSettings;
-                case "BedrockBreaker" -> cfg.bedrockBreakerSettings.pingSettings;
-                default -> null;
-            };
-            if (ps == null) { event.reply("Unknown type: " + type).setEphemeral(true).queue(); return; }
+            MachineManager manager = MachineRegistry.get(type);
+            if (manager == null) { event.reply("Unknown type: " + type).setEphemeral(true).queue(); return; }
+            ModConfig.PingSettings ps = manager.getSettings().pingSettings;
 
             switch (setting) {
                 case "enabled" -> ps.enabled = value;
@@ -332,15 +325,10 @@ public class DiscordBotManager {
         }
 
         private void showPingSettingPicker(ButtonInteractionEvent event, String type) {
-            ModConfig cfg = config();
-            if (cfg == null) return;
-            ModConfig.PingSettings ps = switch (type) {
-                case "WorldEater" -> cfg.worldEaterSettings.pingSettings;
-                case "Trencher" -> cfg.trencherSettings.pingSettings;
-                case "BedrockBreaker" -> cfg.bedrockBreakerSettings.pingSettings;
-                default -> null;
-            };
-            if (ps == null) return;
+            if (config() == null) return;
+            MachineManager manager = MachineRegistry.get(type);
+            if (manager == null) return;
+            ModConfig.PingSettings ps = manager.getSettings().pingSettings;
             event.editMessage("Select which setting to change:")
                     .setEmbeds(embedFor(ps, type))
                     .setActionRow(selectFor(type))
@@ -385,16 +373,10 @@ public class DiscordBotManager {
 
             if (id.equals("wen:pings:type")) {
                 String type = event.getValues().get(0);
-                ModConfig cfg = config();
-                if (cfg == null) return;
-
-                ModConfig.PingSettings ps = switch (type) {
-                    case "WorldEater" -> cfg.worldEaterSettings.pingSettings;
-                    case "Trencher" -> cfg.trencherSettings.pingSettings;
-                    case "BedrockBreaker" -> cfg.bedrockBreakerSettings.pingSettings;
-                    default -> null;
-                };
-                if (ps == null) return;
+                if (config() == null) return;
+                MachineManager manager = MachineRegistry.get(type);
+                if (manager == null) return;
+                ModConfig.PingSettings ps = manager.getSettings().pingSettings;
 
                 event.editMessage("Select which setting to change:")
                         .setEmbeds(embedFor(ps, type))
@@ -430,12 +412,9 @@ public class DiscordBotManager {
                 return;
             }
 
-            Collection<String> names = switch (type) {
-                case "WorldEater" -> WorldEaterManager.getInstance().getAll().stream().map(i -> i.getDefinition().name()).toList();
-                case "Trencher" -> TrencherManager.getInstance().getAll().stream().map(i -> i.getDefinition().name()).toList();
-                case "BedrockBreaker" -> BedrockBreakerManager.getInstance().getAll().stream().map(i -> i.getDefinition().name()).toList();
-                default -> List.of();
-            };
+            MachineManager manager = MachineRegistry.get(type);
+            Collection<String> names = manager == null ? List.of()
+                    : manager.getAll().stream().map(i -> i.getDefinition().name()).toList();
 
             String focused = event.getFocusedOption().getValue();
             List<String> filtered = names.stream()
@@ -567,11 +546,7 @@ public class DiscordBotManager {
                 event.reply(type + " '" + name + "' is already active.").setEphemeral(true).queue();
                 return;
             }
-            switch (type) {
-                case "WorldEater" -> WorldEaterManager.getInstance().start(name);
-                case "Trencher" -> TrencherManager.getInstance().start(name);
-                case "BedrockBreaker" -> BedrockBreakerManager.getInstance().start(name);
-            }
+            MachineRegistry.get(type).start(name);
             broadcastMinecraft(type + " '" + name + "' started via Discord.");
             DiscordNotifier.sendStart(type, name, inst.getPingSettings());
             event.reply("Started " + type + " '" + name + "'.").setEphemeral(true).queue();
@@ -588,11 +563,7 @@ public class DiscordBotManager {
                 event.reply(type + " '" + name + "' is already inactive.").setEphemeral(true).queue();
                 return;
             }
-            switch (type) {
-                case "WorldEater" -> WorldEaterManager.getInstance().stop(name);
-                case "Trencher" -> TrencherManager.getInstance().stop(name);
-                case "BedrockBreaker" -> BedrockBreakerManager.getInstance().stop(name);
-            }
+            MachineRegistry.get(type).stop(name);
             broadcastMinecraft(type + " '" + name + "' stopped via Discord.");
             DiscordNotifier.sendManuallyStopped(type, name, inst.getPingSettings());
             event.reply("Stopped " + type + " '" + name + "'.").setEphemeral(true).queue();

@@ -41,14 +41,14 @@ src/main/java/com/example/worldeaternotifier/
 ├── common/
 │   ├── BaseMachineDefinition.java      # Immutable record: name, inclusive AABB coords, dimension
 │   ├── BaseMachineInstance.java        # Runtime state: active, lastActivityTick, stuckAlertSent, detectionType
+│   ├── MachineManager.java             # Generic per-type manager (ConcurrentHashMap<String, BaseMachineInstance> + ModConfig)
+│   ├── MachineRegistry.java            # The 3 MachineManager instances (WORLD_EATER/TRENCHER/BEDROCK_BREAKER), keyed by type string
+│   ├── MachineCommand.java             # Generic Brigadier command tree, parameterized per machine type
 │   ├── DiscordNotifier.java            # Outbound notifications (webhook via HttpClient, or delegate to bot)
 │   ├── ExplosionBlockCallback.java     # Fabric event carrying the destroyed-block list to listeners
 │   └── PermissionManager.java          # Op / whitelist authorization gate for in-game commands
 ├── config/
 │   └── ModConfig.java                  # Gson JSON config (load/save under config/worldeaternotifier.json)
-├── worldeater/                         # WorldEaterManager + WorldEaterCommand
-├── trencher/                           # TrencherManager + TrencherCommand
-├── bedrockbreaker/                     # BedrockBreakerManager + BedrockBreakerCommand
 ├── bot/
 │   └── DiscordBotManager.java          # JDA lifecycle, pending buffer, slash commands, buttons/selects
 ├── monitor/
@@ -61,10 +61,18 @@ src/main/java/com/example/worldeaternotifier/
 
 ### Three machine types
 
-Each type follows the same shape: a singleton `*Manager`
-(in-memory `ConcurrentHashMap<String, BaseMachineInstance>` + a `ModConfig` reference) and
-a static `*Command` (Brigadier tree). All three share `BaseMachineDefinition` and
-`BaseMachineInstance`.
+WorldEater, Trencher and BedrockBreaker are all instances of the same generic classes,
+not separate hierarchies: `MachineManager` (in-memory `ConcurrentHashMap<String,
+BaseMachineInstance>` + a `ModConfig` reference, parameterized by a saved-list accessor
+and a settings accessor) and `MachineCommand` (one Brigadier tree, parameterized by
+machine type, display name, and which optional settings/args apply — `hasDetectionTypeArg`
+for Trencher's quarry-like/2-way create arg, `hasMinTntCount`, `hasMinBlocksBroken`).
+`MachineRegistry` holds the three `MachineManager` instances (`WORLD_EATER`, `TRENCHER`,
+`BEDROCK_BREAKER`) keyed by the type string used everywhere else (Discord, config,
+notifications). `WorldEaterNotifierMod` constructs the three `MachineCommand` instances
+and registers them. All three share `BaseMachineDefinition`, `BaseMachineInstance`, and
+`ModConfig.MachineSettings` (one settings shape for all types — a couple of fields go
+unused per type, e.g. BedrockBreaker ignores `minTntCount`).
 
 | Type | Detection | Config settings key |
 |------|-----------|---------------------|
@@ -223,12 +231,16 @@ The whitelist is shared across all three commands.
 
 ## Key Conventions
 
-- **Managers are singletons** (`getInstance()`), each holding a `ModConfig` reference.
-- **Commands are static**, registered via `register(dispatcher, registryAccess, environment)`.
-- **Machine types are strings:** `"WorldEater"`, `"Trencher"`, `"BedrockBreaker"`.
-- **Adding a machine type** = new package (`*Manager` + `*Command`) + a settings section in
-  `ModConfig` + wiring in `WorldEaterNotifierMod` + detection logic in `MonitorCheckHandler`.
-- **No dependency injection** — manual singleton wiring throughout.
+- **Managers are `MachineManager` instances** held in `MachineRegistry` (`WORLD_EATER`,
+  `TRENCHER`, `BEDROCK_BREAKER`), each holding a `ModConfig` reference.
+- **Commands are `MachineCommand` instances**, one per type, constructed in
+  `WorldEaterNotifierMod` and registered via `register(dispatcher, registryAccess, environment)`.
+- **Machine types are strings:** `"WorldEater"`, `"Trencher"`, `"BedrockBreaker"` — used as
+  `MachineRegistry` keys and passed through to `DiscordNotifier`/`BaseMachineInstance`.
+- **Adding a machine type** = a new `MachineManager`/`MachineCommand` pair wired into
+  `MachineRegistry` + `WorldEaterNotifierMod`, a settings section in `ModConfig`, and
+  detection logic in `MonitorCheckHandler`.
+- **No dependency injection** — manual wiring throughout, `MachineRegistry` is the one shared registry.
 - **Coordinates** form an inclusive AABB using `Math.min/max` of the two corners.
 - **Server-side only** (`"environment": "server"` in `fabric.mod.json`).
 - When architecture or conventions change, update this file; when task status changes,
