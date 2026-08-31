@@ -4,7 +4,6 @@ import com.example.worldeaternotifier.bot.DiscordBotManager;
 import com.example.worldeaternotifier.config.ModConfig;
 import com.example.worldeaternotifier.config.ModConfig.MessageTemplates;
 import com.example.worldeaternotifier.config.ModConfig.PingSettings;
-import com.example.worldeaternotifier.worldeater.WorldEaterManager;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -14,6 +13,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.function.Function;
 
 public class DiscordNotifier {
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
@@ -21,8 +21,26 @@ public class DiscordNotifier {
             .build();
     private static final Gson GSON = new Gson();
 
+    private enum Event {
+        START(t -> t.start, p -> p.onStart, true),
+        STUCK(t -> t.stuck, p -> p.onStuck, false),
+        RESUMED(t -> t.resumed, p -> p.onResumed, false),
+        MANUAL_STOP(t -> t.manualStop, p -> p.onStop, false),
+        SHUTDOWN(t -> t.shutdown, p -> p.onShutdown, false);
+
+        final Function<MessageTemplates, String> template;
+        final Function<PingSettings, Boolean> pingFlag;
+        final boolean buttonEligible;
+
+        Event(Function<MessageTemplates, String> template, Function<PingSettings, Boolean> pingFlag, boolean buttonEligible) {
+            this.template = template;
+            this.pingFlag = pingFlag;
+            this.buttonEligible = buttonEligible;
+        }
+    }
+
     private static ModConfig config() {
-        return WorldEaterManager.getInstance().getConfig();
+        return MachineRegistry.getConfig();
     }
 
     private static String notificationMode() {
@@ -46,14 +64,9 @@ public class DiscordNotifier {
     }
 
     private static MessageTemplates templatesFor(String machineType) {
-        var config = config();
-        if (config == null) return new MessageTemplates();
-        return switch (machineType) {
-            case "WorldEater" -> config.worldEaterSettings.messages;
-            case "Trencher" -> config.trencherSettings.messages;
-            case "BedrockBreaker" -> config.bedrockBreakerSettings.messages;
-            default -> config.worldEaterSettings.messages;
-        };
+        MachineManager manager = MachineRegistry.get(machineType);
+        if (manager == null || manager.getConfig() == null) return new MessageTemplates();
+        return manager.getSettings().messages;
     }
 
     private static String buildMentionIfAllowed(boolean mentionAllowed) {
@@ -107,30 +120,30 @@ public class DiscordNotifier {
         }
     }
 
-    public static void sendStart(String machineType, String machineName, PingSettings pings) {
+    private static void send(Event event, String machineType, String machineName, PingSettings pings) {
         var config = config();
-        boolean withButton = config != null && config.showSubscriptionButton;
-        send(fmt(templatesFor(machineType).start, machineType, machineName),
-                machineType, machineName, pings.enabled && pings.onStart, withButton);
+        boolean withButton = event.buttonEligible && config != null && config.showSubscriptionButton;
+        String content = fmt(event.template.apply(templatesFor(machineType)), machineType, machineName);
+        send(content, machineType, machineName, pings.enabled && event.pingFlag.apply(pings), withButton);
+    }
+
+    public static void sendStart(String machineType, String machineName, PingSettings pings) {
+        send(Event.START, machineType, machineName, pings);
     }
 
     public static void sendStuck(String machineType, String machineName, PingSettings pings) {
-        send(fmt(templatesFor(machineType).stuck, machineType, machineName),
-                machineType, machineName, pings.enabled && pings.onStuck, false);
+        send(Event.STUCK, machineType, machineName, pings);
     }
 
     public static void sendResumed(String machineType, String machineName, PingSettings pings) {
-        send(fmt(templatesFor(machineType).resumed, machineType, machineName),
-                machineType, machineName, pings.enabled && pings.onResumed, false);
+        send(Event.RESUMED, machineType, machineName, pings);
     }
 
     public static void sendManuallyStopped(String machineType, String machineName, PingSettings pings) {
-        send(fmt(templatesFor(machineType).manualStop, machineType, machineName),
-                machineType, machineName, pings.enabled && pings.onStop, false);
+        send(Event.MANUAL_STOP, machineType, machineName, pings);
     }
 
     public static void sendServerShutdown(String machineType, String machineName, PingSettings pings) {
-        send(fmt(templatesFor(machineType).shutdown, machineType, machineName),
-                machineType, machineName, pings.enabled && pings.onShutdown, false);
+        send(Event.SHUTDOWN, machineType, machineName, pings);
     }
 }

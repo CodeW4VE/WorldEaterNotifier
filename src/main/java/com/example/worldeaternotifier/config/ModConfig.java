@@ -22,9 +22,9 @@ public class ModConfig {
     public String notificationMode = "webhook";
     public boolean showSubscriptionButton = true;
 
-    public WorldEaterSettings worldEaterSettings = new WorldEaterSettings();
-    public TrencherSettings trencherSettings = new TrencherSettings();
-    public BedrockBreakerSettings bedrockBreakerSettings = new BedrockBreakerSettings();
+    public MachineSettings worldEaterSettings = new MachineSettings(60, 20, 0);
+    public MachineSettings trencherSettings = new MachineSettings(180, 3, 3);
+    public MachineSettings bedrockBreakerSettings = new MachineSettings(60, 0, 1);
 
     public List<SavedMachine> worldEaters = new ArrayList<>();
     public List<SavedMachine> trenchers = new ArrayList<>();
@@ -34,26 +34,20 @@ public class ModConfig {
     // Op players (permission level 2+) can always use every command regardless of this list.
     public List<String> whitelist = new ArrayList<>();
 
-    public static class WorldEaterSettings {
-        public int stopTimeoutSeconds = 60;
-        public int minTntCount = 20;
+    public static class MachineSettings {
+        public int stopTimeoutSeconds;
+        public int minTntCount;
+        public int minBlocksBroken;
         public PingSettings pingSettings = new PingSettings();
         public MessageTemplates messages = new MessageTemplates();
-    }
 
-    public static class TrencherSettings {
-        public int stopTimeoutSeconds = 180;
-        public int minBlocksBroken = 3;
-        public int minTntCount = 3;
-        public PingSettings pingSettings = new PingSettings();
-        public MessageTemplates messages = new MessageTemplates();
-    }
+        public MachineSettings() {}
 
-    public static class BedrockBreakerSettings {
-        public int stopTimeoutSeconds = 60;
-        public int minBlocksBroken = 1;
-        public PingSettings pingSettings = new PingSettings();
-        public MessageTemplates messages = new MessageTemplates();
+        public MachineSettings(int stopTimeoutSeconds, int minTntCount, int minBlocksBroken) {
+            this.stopTimeoutSeconds = stopTimeoutSeconds;
+            this.minTntCount = minTntCount;
+            this.minBlocksBroken = minBlocksBroken;
+        }
     }
 
     public static class PingSettings {
@@ -100,24 +94,14 @@ public class ModConfig {
                 if (config.trenchers == null) config.trenchers = new ArrayList<>();
                 if (config.bedrockBreakers == null) config.bedrockBreakers = new ArrayList<>();
                 if (config.whitelist == null) config.whitelist = new ArrayList<>();
-                if (config.worldEaterSettings == null) config.worldEaterSettings = new WorldEaterSettings();
-                if (config.trencherSettings == null) config.trencherSettings = new TrencherSettings();
-                if (config.bedrockBreakerSettings == null) config.bedrockBreakerSettings = new BedrockBreakerSettings();
-                if (config.worldEaterSettings.pingSettings == null) config.worldEaterSettings.pingSettings = new PingSettings();
-                if (config.worldEaterSettings.messages == null) config.worldEaterSettings.messages = new MessageTemplates();
-                if (config.trencherSettings.pingSettings == null) config.trencherSettings.pingSettings = new PingSettings();
-                if (config.trencherSettings.messages == null) config.trencherSettings.messages = new MessageTemplates();
-                if (config.bedrockBreakerSettings.pingSettings == null) config.bedrockBreakerSettings.pingSettings = new PingSettings();
-                if (config.bedrockBreakerSettings.messages == null) config.bedrockBreakerSettings.messages = new MessageTemplates();
+                if (config.worldEaterSettings == null) config.worldEaterSettings = new MachineSettings(60, 20, 0);
+                if (config.trencherSettings == null) config.trencherSettings = new MachineSettings(180, 3, 3);
+                if (config.bedrockBreakerSettings == null) config.bedrockBreakerSettings = new MachineSettings(60, 0, 1);
 
                 // Apply defaults if values are invalid
-                if (config.worldEaterSettings.stopTimeoutSeconds <= 0) config.worldEaterSettings.stopTimeoutSeconds = 60;
-                if (config.worldEaterSettings.minTntCount < 1) config.worldEaterSettings.minTntCount = 3;
-                if (config.trencherSettings.stopTimeoutSeconds <= 0) config.trencherSettings.stopTimeoutSeconds = 180;
-                if (config.trencherSettings.minBlocksBroken < 0) config.trencherSettings.minBlocksBroken = 20;
-                if (config.trencherSettings.minTntCount < 1) config.trencherSettings.minTntCount = 3;
-                if (config.bedrockBreakerSettings.stopTimeoutSeconds <= 0) config.bedrockBreakerSettings.stopTimeoutSeconds = 180;
-                if (config.bedrockBreakerSettings.minBlocksBroken < 0) config.bedrockBreakerSettings.minBlocksBroken = 1;
+                clampDefaults(config.worldEaterSettings, 60, 3, 0);
+                clampDefaults(config.trencherSettings, 180, 3, 20);
+                clampDefaults(config.bedrockBreakerSettings, 180, 3, 1);
 
                 for (ModConfig.SavedMachine saved : config.trenchers) {
                     if (saved.detectionType == null || (!saved.detectionType.equals("quarry-like") && !saved.detectionType.equals("2-way"))) {
@@ -133,6 +117,14 @@ public class ModConfig {
         ModConfig config = new ModConfig();
         config.save();
         return config;
+    }
+
+    private static void clampDefaults(MachineSettings s, int timeoutDefault, int minTntDefault, int minBlocksDefault) {
+        if (s.pingSettings == null) s.pingSettings = new PingSettings();
+        if (s.messages == null) s.messages = new MessageTemplates();
+        if (s.stopTimeoutSeconds <= 0) s.stopTimeoutSeconds = timeoutDefault;
+        if (s.minTntCount < 1) s.minTntCount = minTntDefault;
+        if (s.minBlocksBroken < 0) s.minBlocksBroken = minBlocksDefault;
     }
 
     public void save() {
