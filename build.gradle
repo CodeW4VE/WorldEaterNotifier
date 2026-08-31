@@ -77,3 +77,12 @@ jar {
 		rename { "${it}_${project.base.archivesName.get()}"}
 	}
 }
+
+// Local-only: collect this branch's jar into a shared, gitignored multi-version folder
+// so builds from every Minecraft-version branch can sit side by side for testing.
+tasks.register('copyToDist', Copy) {
+	from remapJar
+	into rootProject.file('dist')
+	rename { "${project.archives_base_name}-${project.mod_version}-mc${project.minecraft_version}.jar" }
+}
+tasks.named('build') { finalizedBy 'copyToDist' }
