@@ -72,3 +72,6 @@ desktop.ini
 
 # Local-only working files
 PLAN.md
+
+# Local-only multi-version build output
+/dist/
