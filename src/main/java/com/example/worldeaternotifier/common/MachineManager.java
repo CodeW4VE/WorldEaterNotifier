@@ -1,28 +1,37 @@
-package com.example.worldeaternotifier.trencher;
+package com.example.worldeaternotifier.common;
 
-import com.example.worldeaternotifier.common.BaseMachineDefinition;
-import com.example.worldeaternotifier.common.BaseMachineInstance;
 import com.example.worldeaternotifier.config.ModConfig;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
-public class TrencherManager {
-    private static final TrencherManager INSTANCE = new TrencherManager();
+public class MachineManager {
+    private final String machineType;
+    private final Function<ModConfig, List<ModConfig.SavedMachine>> savedList;
+    private final Function<ModConfig, ModConfig.MachineSettings> settingsAccessor;
     private final Map<String, BaseMachineInstance> instances = new ConcurrentHashMap<>();
     private ModConfig config;
 
-    private TrencherManager() {}
-
-    public static TrencherManager getInstance() { return INSTANCE; }
+    public MachineManager(String machineType,
+                           Function<ModConfig, List<ModConfig.SavedMachine>> savedList,
+                           Function<ModConfig, ModConfig.MachineSettings> settingsAccessor) {
+        this.machineType = machineType;
+        this.savedList = savedList;
+        this.settingsAccessor = settingsAccessor;
+    }
 
     public void setConfig(ModConfig config) { this.config = config; }
     public ModConfig getConfig() { return config; }
+    public String getMachineType() { return machineType; }
+    public ModConfig.MachineSettings getSettings() { return settingsAccessor.apply(config); }
+    public List<ModConfig.SavedMachine> getSavedList() { return savedList.apply(config); }
 
     public boolean create(BaseMachineDefinition definition, String detectionType) {
         String name = definition.name();
         if (instances.containsKey(name)) return false;
-        BaseMachineInstance instance = new BaseMachineInstance(definition, "Trencher", config.trencherSettings.pingSettings, detectionType);
+        BaseMachineInstance instance = new BaseMachineInstance(definition, machineType, getSettings().pingSettings, detectionType);
         instances.put(name, instance);
 
         ModConfig.SavedMachine saved = new ModConfig.SavedMachine(
@@ -33,7 +42,7 @@ public class TrencherManager {
                 false
         );
         saved.detectionType = detectionType;
-        config.trenchers.add(saved);
+        getSavedList().add(saved);
         config.save();
         return true;
     }
@@ -59,7 +68,7 @@ public class TrencherManager {
     public boolean delete(String name) {
         BaseMachineInstance removed = instances.remove(name);
         if (removed == null) return false;
-        config.trenchers.removeIf(we -> we.name.equals(name));
+        getSavedList().removeIf(m -> m.name.equals(name));
         config.save();
         return true;
     }
@@ -75,7 +84,7 @@ public class TrencherManager {
     }
 
     private void updateSavedState(String name, boolean active) {
-        for (ModConfig.SavedMachine saved : config.trenchers) {
+        for (ModConfig.SavedMachine saved : getSavedList()) {
             if (saved.name.equals(name)) {
                 saved.active = active;
                 config.save();
