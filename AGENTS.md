@@ -1,6 +1,6 @@
 # WorldEaterNotifier
 
-Fabric mod (Minecraft 1.21.6, **server-side only**) that monitors world eaters,
+Fabric mod (Minecraft 1.21.9–1.21.10, **server-side only**) that monitors world eaters,
 trenchers, and bedrock breakers and sends Discord notifications — via webhook or a JDA
 bot — with per-event ping control when a machine starts, gets stuck/obstructed, resumes,
 is stopped, or the server shuts down.
@@ -11,9 +11,19 @@ is stopped, or the server shuts down.
 ## Tech Stack
 
 - **Language:** Java 21
-- **Loader/API:** Fabric Loader 0.16.14, Fabric API 0.128.0+1.21.6
-- **Build:** Gradle + Fabric Loom 1.10.5
-- **Mappings:** Yarn 1.21.6+build.1
+- **Loader/API:** Fabric Loader 0.19.3, Fabric API 0.134.1+1.21.9
+- **Build:** Gradle 9.6.1 + Fabric Loom 1.14.10 (older Loom fails to configure this MC
+  version's toolchain — "Unsupported unpick version" — bumped from the 1.21.6 branch's
+  1.10.5/Gradle 8.12.1, matching `main`'s versions)
+- **Mappings:** Yarn 1.21.9+build.1
+- **Version range:** this branch covers Minecraft 1.21.9 and 1.21.10 — confirmed by compiling
+  the same source against both. It needed exactly one source change from the `1.21.6` branch:
+  `GameProfile.getGameProfile().getName()` → `.name()` (this version's rename; `main`'s is
+  further along and additionally swapped the whole op-permission check to the new
+  `net.minecraft.command.permission` API — that break wasn't reached here, `hasPermissionLevel(2)`
+  still compiles at 1.21.9/1.21.10). Built and shipped against the lowest (1.21.9). 1.21.6–1.21.8
+  are the `1.21.6` branch (old `getName()`, old Loom/Gradle); 1.21.11 is `main` (new permission
+  API too).
 - **Mixin:** `ExplosionMixin` targets `ExplosionImpl.destroyBlocks`
 - **Dependencies:**
   - Fabric API + Java stdlib (`java.net.http.HttpClient` for webhooks, **Gson** for

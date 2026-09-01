@@ -36,7 +36,7 @@ public class MachineCommand {
         ServerCommandSource source = context.getSource();
         if (source.getServer() == null) return Suggestions.empty();
         String[] names = source.getServer().getPlayerManager().getPlayerList().stream()
-                .map(p -> p.getGameProfile().getName())
+                .map(p -> p.getGameProfile().name())
                 .toArray(String[]::new);
         return CommandSource.suggestMatching(names, builder);
     };
