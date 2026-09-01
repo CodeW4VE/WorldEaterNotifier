@@ -33,7 +33,7 @@ public class PermissionManager {
         ServerPlayerEntity player = source.getPlayer();
         if (player == null) return false; // non-player, non-op source (e.g. a command block)
 
-        return isWhitelisted(player.getGameProfile().getName());
+        return isWhitelisted(player.getGameProfile().name());
     }
 
     public static boolean isWhitelisted(String playerName) {
