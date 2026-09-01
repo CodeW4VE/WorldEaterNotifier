@@ -1,6 +1,6 @@
 # WorldEaterNotifier
 
-Fabric mod (Minecraft 1.21.6, **server-side only**) that monitors world eaters,
+Fabric mod (Minecraft 1.21.6–1.21.8, **server-side only**) that monitors world eaters,
 trenchers, and bedrock breakers and sends Discord notifications — via webhook or a JDA
 bot — with per-event ping control when a machine starts, gets stuck/obstructed, resumes,
 is stopped, or the server shuts down.
@@ -15,6 +15,10 @@ is stopped, or the server shuts down.
 - **Build:** Gradle + Fabric Loom 1.10.5
 - **Mappings:** Yarn 1.21.6+build.1
 - **Mixin:** `ExplosionMixin` targets `ExplosionImpl.destroyBlocks`
+- **Version range:** this branch covers Minecraft 1.21.6, 1.21.7, and 1.21.8 — confirmed by
+  compiling the same source against all three. `GameProfile.getGameProfile().getName()`
+  breaks starting at 1.21.9 (renamed to `.name()`), which is the `1.21.9` branch (also needed
+  a newer Loom/Gradle — 1.21.6-1.21.8 build fine on this branch's older 1.10.5/Gradle 8.12.1).
 - **Dependencies:**
   - Fabric API + Java stdlib (`java.net.http.HttpClient` for webhooks, **Gson** for
     config and webhook JSON payloads).
