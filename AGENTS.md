@@ -249,3 +249,18 @@ The whitelist is shared across all three commands.
 - **Server-side only** (`"environment": "server"` in `fabric.mod.json`).
 - When architecture or conventions change, update this file; when task status changes,
   update `PLAN.md`.
+
+## Commit and comment rules for AI agents
+
+- **Never add AI/session/model attribution to a commit.** No `Co-Authored-By: Claude` (or
+  any other assistant) trailer, no `Claude-Session:`/session-link trailer, no mention of the
+  model or tool used anywhere in the subject or body. Commit messages describe the change,
+  not who or what wrote it. If a commit template or tool default appends this automatically,
+  strip it before committing.
+- **No unrequested comments.** Don't add class/method doc comments that just restate the
+  name (`/** Manages the thing */` above `class ThingManager`), and don't leave prose
+  explaining a design decision, a session's reasoning, or "why this file exists" in the code.
+  If a decision needs explaining, put it in the commit message or `PLAN.md`, not a comment
+  block. A comment is only worth adding for a genuinely non-obvious runtime constraint (an
+  API quirk, a platform version gotcha, a workaround for a specific bug) — one or two lines,
+  not a paragraph.
