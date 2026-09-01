@@ -15,6 +15,10 @@ is stopped, or the server shuts down.
 - **Build:** Gradle + Fabric Loom 1.7-SNAPSHOT
 - **Mappings:** Yarn 1.21+build.1
 - **Mixin:** `ExplosionMixin` targets `ExplosionImpl.destroyBlocks`
+- **Version range:** this branch covers Minecraft 1.21 and 1.21.1 only. Mojang refactored
+  explosions at 1.21.2 (`Explosion.affectWorld` → `ExplosionImpl.destroyBlocks`, confirmed
+  by the `1.21.6` branch's mixin), so this branch's code does not carry forward past 1.21.1 —
+  that's the `1.21.2` branch (1.21.2 through 1.21.5).
 - **Dependencies:**
   - Fabric API + Java stdlib (`java.net.http.HttpClient` for webhooks, **Gson** for
     config and webhook JSON payloads).
