@@ -11,18 +11,15 @@ import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mojang.brigadier.suggestion.Suggestions;
-import com.mojang.brigadier.tree.ArgumentCommandNode;
-import com.mojang.brigadier.tree.CommandNode;
+import com.mojang.brigadier.tree.RootCommandNode;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.CommandSource;
 import net.minecraft.network.packet.s2c.play.CommandTreeS2CPacket;
-import net.minecraft.network.packet.s2c.play.CommandTreeS2CPacket.CommandNodeInspector;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 
 import java.net.URI;
@@ -478,13 +475,8 @@ public class MachineCommand {
     private static void syncCommandTree(CommandContext<ServerCommandSource> ctx) {
         var server = ctx.getSource().getServer();
         if (server == null) return;
-        var root = server.getCommandManager().getDispatcher().getRoot();
-        CommandNodeInspector<ServerCommandSource> inspector = new CommandNodeInspector<>() {
-            public Identifier getSuggestionProviderId(ArgumentCommandNode<ServerCommandSource, ?> node) { return null; }
-            public boolean isExecutable(CommandNode<ServerCommandSource> node) { return true; }
-            public boolean hasRequiredLevel(CommandNode<ServerCommandSource> node) { return true; }
-        };
-        var packet = new CommandTreeS2CPacket(root, inspector);
+        var root = (RootCommandNode<CommandSource>) (RootCommandNode<?>) server.getCommandManager().getDispatcher().getRoot();
+        var packet = new CommandTreeS2CPacket(root);
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             player.networkHandler.sendPacket(packet);
         }

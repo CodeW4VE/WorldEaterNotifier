@@ -1,6 +1,6 @@
 # WorldEaterNotifier
 
-Fabric mod (Minecraft 1.21.6, **server-side only**) that monitors world eaters,
+Fabric mod (Minecraft 1.21.2–1.21.5, **server-side only**) that monitors world eaters,
 trenchers, and bedrock breakers and sends Discord notifications — via webhook or a JDA
 bot — with per-event ping control when a machine starts, gets stuck/obstructed, resumes,
 is stopped, or the server shuts down.
@@ -11,9 +11,17 @@ is stopped, or the server shuts down.
 ## Tech Stack
 
 - **Language:** Java 21
-- **Loader/API:** Fabric Loader 0.16.14, Fabric API 0.128.0+1.21.6
+- **Loader/API:** Fabric Loader 0.19.3, Fabric API 0.106.1+1.21.2
 - **Build:** Gradle + Fabric Loom 1.10.5
-- **Mappings:** Yarn 1.21.6+build.1
+- **Mappings:** Yarn 1.21.2+build.1
+- **Version range:** this branch covers Minecraft 1.21.2, 1.21.3, 1.21.4, and 1.21.5 — the
+  same source compiles unchanged against all four (empirically confirmed, not assumed); it
+  is built and shipped against the lowest (1.21.2), the normal Fabric convention. 1.21 and
+  1.21.1 are the `1.21.0` branch (different `CommandTreeS2CPacket` API — no
+  `CommandNodeInspector` there either, but also no explosion-mixin split); 1.21.6+ is the
+  `1.21.6` branch (adds `CommandNodeInspector`-based `CommandTreeS2CPacket` — the old
+  single-arg constructor this branch uses may or may not still exist there; untested, not
+  required since the two branches never need to share code).
 - **Mixin:** `ExplosionMixin` targets `ExplosionImpl.destroyBlocks`
 - **Dependencies:**
   - Fabric API + Java stdlib (`java.net.http.HttpClient` for webhooks, **Gson** for
