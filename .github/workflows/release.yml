@@ -1,0 +1,37 @@
+name: release
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    env:
+      MODRINTH_ID: ${{ vars.MODRINTH_ID }}
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+      - name: build every version
+        run: python3 tools/multiversion.py
+      - name: publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/multiversion/worldeaternotifier-*.jar
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+      - name: publish to modrinth
+        if: env.MODRINTH_ID != '' && env.MODRINTH_TOKEN != ''
+        run: python3 tools/publish_modrinth.py

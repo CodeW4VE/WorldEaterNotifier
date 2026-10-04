@@ -1,17 +1,17 @@
 # WorldEaterNotifier
 
-Fabric mod (Minecraft 1.21.11, **server-side only**) that monitors world eaters,
+Fabric mod (Minecraft 1.21.11 and 26.3, **server-side only**) that monitors world eaters,
 trenchers, and bedrock breakers and sends Discord notifications — via webhook or a JDA
 bot — with per-event ping control when a machine starts, gets stuck/obstructed, resumes,
 is stopped, or the server shuts down.
 
 ## Tech Stack
 
-- **Language:** Java 21
-- **Loader/API:** Fabric Loader 0.18.1, Fabric API 0.141.4+1.21.11
-- **Build:** Gradle + Fabric Loom 1.14.10
-- **Mappings:** Yarn 1.21.11+build.4
-- **Mixin:** `ExplosionMixin` targets `ExplosionImpl.destroyBlocks`
+- **Language:** Java 21 (1.21.11), Java 25 (26.3)
+- **Loader/API:** 1.21.11: Loader 0.18.1, API 0.141.4+1.21.11; 26.3: Loader 0.19.5, API 0.161.0+26.3
+- **Build:** Gradle + Fabric Loom 1.14.10 (legacy) / 1.17.20 (26.3); `tools/multiversion.py` builds isolated copies.
+- **Mappings:** Yarn 1.21.11+build.4 in the base source; Mojang names with no mappings for 26.3 in `variants/26.3`.
+- **Mixin:** legacy `ExplosionImpl.destroyBlocks`; 26.3 `ServerExplosion.interactWithBlocks`.
 - **Dependencies:**
   - Fabric API + Java stdlib (`java.net.http.HttpClient` for webhooks, **Gson** for
     config and webhook JSON payloads).
@@ -24,7 +24,7 @@ is stopped, or the server shuts down.
 ## Build & Run
 
 ```bash
-./gradlew clean build     # -> build/libs/worldeaternotifier-<version>.jar (JDA shaded in)
+python3 tools/multiversion.py  # -> build/multiversion/*+1.21.11.jar and *+26.3.jar (JDA shaded in)
 ```
 
 There are **no automated tests**. Verify behavior by loading the jar on a dev server and

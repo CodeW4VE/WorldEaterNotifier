@@ -4,9 +4,9 @@
 
 **Fabric mod that monitors world eaters and trenchers, sending Discord notifications with per‑event ping control when they stop or get obstructed.**
 
-[![Minecraft](https://img.shields.io/badge/Minecraft-1.21-62B47D?logo=minecraft&logoColor=white)](https://www.minecraft.net/)
-[![Fabric](https://img.shields.io/badge/Fabric%20Loader-0.19.3%2B-87CEEB?logo=fabric&logoColor=white)](https://fabricmc.net/)
-[![Java](https://img.shields.io/badge/Java-21%2B-ED8B00?logo=java&logoColor=white)](https://www.java.com/)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.11%20%2F%2026.3-62B47D?logo=minecraft&logoColor=white)](https://www.minecraft.net/)
+[![Fabric](https://img.shields.io/badge/Fabric%20Loader-0.19.5%2B-87CEEB?logo=fabric&logoColor=white)](https://fabricmc.net/)
+[![Java](https://img.shields.io/badge/Java-21%20%2F%2025-ED8B00?logo=java&logoColor=white)](https://www.java.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <img width="480" height="270" alt="WorldEaterGithub_10fps" src="https://github.com/user-attachments/assets/af61e7c3-c241-4913-b961-632b3d1dceda" />
@@ -38,30 +38,29 @@ Fabric mod that monitors **world eaters** (TNT-based), **trenchers**, and **bedr
 
 ## Requirements
 
-- [Java](https://www.java.com/) 21 or higher
-- [Minecraft](https://www.minecraft.net/) 1.21.11 server with Fabric loader
-- [Fabric Loader](https://fabricmc.net/) 0.16.14 or higher
-- [Fabric API](https://modrinth.com/mod/fabric-api) 0.128.0+1.21.11 or compatible
+| Minecraft | Java | Fabric Loader | Fabric API |
+| --- | --- | --- | --- |
+| 1.21.11 | 21+ | 0.18.1+ | 0.141.4+1.21.11 |
+| 26.3 | 25+ | 0.19.5+ | 0.161.0+26.3 |
 
-## Installation
+Install on the dedicated server only. Clients do not need this mod. JDA is bundled; no separate Discord library is needed.
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/CodeW4VE/WorldEaterNotifier.git
-   cd WorldEaterNotifier
-   ```
+## Installation and updates
 
-2. Build the mod:
-   ```bash
-   ./gradlew build
-   ```
+1. Download the jar matching your Minecraft version from [GitHub Releases](https://github.com/CodeW4VE/WorldEaterNotifier/releases) or [Modrinth](https://modrinth.com/mod/worldeaternotifier-w4ve).
+2. Put it and the matching [Fabric API](https://modrinth.com/mod/fabric-api) jar in the server's `mods/` folder.
+3. Start the server. The mod creates `config/worldeaternotifier.json` automatically.
+4. Configure delivery and define your machines with the commands below.
 
-3. Copy the generated `.jar` file from `build/libs/` to your server's `mods` folder:
-   ```bash
-   cp build/libs/worldeaternotifier-*.jar /path/to/server/mods/
-   ```
+Keep `config/worldeaternotifier.json` when updating. Machine definitions, settings, message templates, and the whitelist are retained. Machines load **inactive** after a restart; start them explicitly when ready.
 
-4. Create a `worldeaternotifier-config.json` file in your server's `config` directory with Discord webhook and world eater settings.
+To build both supported versions:
+
+```bash
+python3 tools/multiversion.py
+```
+
+The jars are written to `build/multiversion/`. The builder uses Java 21 for 1.21.11 and Java 25 for 26.3. In CI these are supplied by `JAVA_HOME` and `JAVA_HOME_25_X64`; locally they default to `~/.local/opt/jdk-21` and `~/.local/opt/jdk-25`.
 
 ## Configuration
 
@@ -206,3 +205,7 @@ Generated artifact: `build/libs/worldeaternotifier-*.jar`
 ## License
 
 [MIT](LICENSE) © froyln
+
+## Credits
+
+Original mod by **Kisde**. This repository is the W4VE fork, maintained under the MIT license.

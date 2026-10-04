@@ -75,3 +75,6 @@ PLAN.md
 
 # Local-only multi-version build output
 /dist/
+
+!gradle/wrapper/gradle-wrapper.jar
+__pycache__/
